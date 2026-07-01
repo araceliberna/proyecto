@@ -202,20 +202,27 @@ tratadas"). El export de ejemplo revisado (10,913 filas) confirma que
 `Pedido` está vacío en el 100% de las filas — es decir, es el universo de
 Solpeds que aún no tienen OC.
 
-**Filtro de exclusión ya resuelto (3 criterios):** el mismo script ya
-incluye la limpieza que se necesitaba automatizar — usa el filtro nativo
-del ALV de `ME5A` (botón "Filtro" del grid) para excluir, **antes** de
-traer el resultado:
-1. `Indicador de borrado = true`
-2. `Concluida = X`
-3. `Contrato marco` vacío — **solo se pueden convertir por este medio las
-   Solpeds que ya tienen un contrato marco asignado**; las que salen sin
-   contrato se descartan.
+**Filtro de candidatas — 4 criterios en total:** tres ya resueltos con el
+filtro nativo del ALV de `ME5A` (botón "Filtro" del grid), y un cuarto que
+hoy es manual y se automatiza en el flujo (no en SAP, porque compara dos
+columnas entre sí):
+1. `Indicador de borrado = true` → se excluye (filtro nativo SAP).
+2. `Concluida = X` → se excluye (filtro nativo SAP).
+3. `Contrato marco` vacío → se excluye; **solo se pueden convertir por
+   este medio las Solpeds que ya tienen un contrato marco asignado**
+   (filtro nativo SAP).
+4. **Antigüedad máxima de 3 días:** se toma la fecha más reciente entre
+   `Fecha de liberación` y `Modificado el` (hoy esto se revisa a mano) y
+   se compara contra la fecha actual — si han pasado más de 3 días desde
+   esa fecha, la Solped **ya no debe generarse** (el 3er día todavía
+   cuenta, el 4to ya no). Este cálculo se hace en Power Automate, no en el
+   filtro ALV, porque requiere comparar dos columnas de fecha entre sí
+   antes de comparar contra "hoy".
 
-Los tres se aplican con el mismo filtro nativo de SAP, en vez de depender
-de limpiarlo a mano en Excel cada semana. Se reutilizan tal cual en el
-flujo (detalle en `docs/codigo/flujos-power-automate.md`, Flow 2b,
-Etapa A, pasos 7-8).
+Los tres primeros se reutilizan tal cual en el flujo (detalle en
+`docs/codigo/flujos-power-automate.md`, Flow 2b, Etapa A, pasos 7-9); el
+cuarto queda como un paso adicional de cálculo (paso 10 de esa misma
+etapa).
 
 **Flujo propuesto para el botón "Generar Solped automáticas (ME59N)"**
 (detalle acción por acción en `docs/codigo/flujos-power-automate.md`,

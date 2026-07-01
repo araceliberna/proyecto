@@ -146,15 +146,31 @@ el flow queda en dos etapas: **A) generar la lista de candidatas** y
    - Confirmar (`btn[8]` / Enter) para aplicar.
 9. **SAP – Get table from SAP screen** sobre el resultado **ya filtrado
    con los 3 criterios** (borrado, concluida, y contrato marco vacío) →
-   variable `ListaCandidatas`, con las mismas 32 columnas del export
-   (`Solicitud de pedido`, `Centro`, `Material`, `Contrato marco`, etc.) —
-   ya no hace falta ningún paso de "Filter data table" en Power Automate,
-   porque los 3 filtros quedan 100% automáticos dentro de SAP (esto es lo
-   que pediste: que la limpieza ya no dependa de hacerlo a mano cada
-   semana).
-10. **Add a new row** (Dataverse, opcional) en `EjecucionesScript` con
-    `TotalCandidatas = length(ListaCandidatas)`, para que quede visible
-    cuántas Solpeds entraron a esta corrida.
+   variable `ListaFiltradaSAP`, con las mismas 32 columnas del export
+   (`Solicitud de pedido`, `Centro`, `Material`, `Contrato marco`,
+   `Fecha de liberación`, `Modificado el`, etc.) — ya no hace falta ningún
+   paso de "Filter data table" en Power Automate para los 3 primeros
+   criterios, porque quedan 100% automáticos dentro de SAP.
+
+10. **Cuarto criterio — máximo 3 días desde su generación (este si se
+    calcula en Power Automate, no en el ALV):** hoy este paso lo haces a
+    mano, mirando cuál de los dos campos `Fecha de liberación` /
+    `Modificado el` es más reciente. Se automatiza con un **For each**
+    sobre `ListaFiltradaSAP`:
+    - **Set variable** `FechaReferencia` = la mayor entre
+      `CurrentItem['Fecha de liberación']` y `CurrentItem['Modificado
+      el']` (acción **"If"**/comparación de fechas, o expresión
+      `if(FechaLiberacion > ModificadoEl, FechaLiberacion, ModificadoEl)`).
+    - **Set variable** `DiasTranscurridos` = diferencia en días entre
+      `Fecha actual` y `FechaReferencia` (acción **"Subtract dates"**).
+    - **If** `DiasTranscurridos <= 3`: **Add item to list**
+      `ListaCandidatas` (agrega la fila); si no, se descarta (sigue
+      "vigente hasta el 3er día", tal como confirmaste — al 4to día ya no
+      entra).
+11. **Add a new row** (Dataverse, opcional) en `EjecucionesScript` con
+    `TotalFiltradaSAP = length(ListaFiltradaSAP)`, `TotalCandidatas =
+    length(ListaCandidatas)`, para que quede visible cuántas se
+    descartaron solo por vencer el plazo de 3 días.
 
 ### Etapa B — Ejecutar la conversión en ME59N con la lista filtrada
 
