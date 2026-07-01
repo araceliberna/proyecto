@@ -202,13 +202,20 @@ tratadas"). El export de ejemplo revisado (10,913 filas) confirma que
 `Pedido` está vacío en el 100% de las filas — es decir, es el universo de
 Solpeds que aún no tienen OC.
 
-**Filtro de exclusión ya resuelto:** el mismo script ya incluye la
-limpieza que se necesitaba automatizar — usa el filtro nativo del ALV de
-`ME5A` (botón "Filtro" del grid) para excluir `Indicador de borrado =
-true` y `Concluida = X` **antes** de traer el resultado, en vez de
-depender de limpiarlo a mano en Excel cada semana. Se reutiliza tal cual
-en el flujo (detalle en `docs/codigo/flujos-power-automate.md`, Flow 2b,
-Etapa A, paso 7).
+**Filtro de exclusión ya resuelto (3 criterios):** el mismo script ya
+incluye la limpieza que se necesitaba automatizar — usa el filtro nativo
+del ALV de `ME5A` (botón "Filtro" del grid) para excluir, **antes** de
+traer el resultado:
+1. `Indicador de borrado = true`
+2. `Concluida = X`
+3. `Contrato marco` vacío — **solo se pueden convertir por este medio las
+   Solpeds que ya tienen un contrato marco asignado**; las que salen sin
+   contrato se descartan.
+
+Los tres se aplican con el mismo filtro nativo de SAP, en vez de depender
+de limpiarlo a mano en Excel cada semana. Se reutilizan tal cual en el
+flujo (detalle en `docs/codigo/flujos-power-automate.md`, Flow 2b,
+Etapa A, pasos 7-8).
 
 **Flujo propuesto para el botón "Generar Solped automáticas (ME59N)"**
 (detalle acción por acción en `docs/codigo/flujos-power-automate.md`,

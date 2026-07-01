@@ -126,16 +126,35 @@ el flow queda en dos etapas: **A) generar la lista de candidatas** y
      excluyendo `X`.
    - Confirmar (`btn[8]` / Enter) para que el ALV quede filtrado, sin
      filas `Indicador de borrado = true` ni `Concluida = X`.
-8. **SAP – Get table from SAP screen** sobre el resultado **ya filtrado**
-   → variable `ListaCandidatas`, con las mismas 32 columnas del export
-   (`Solicitud de pedido`, `Centro`, `Material`, etc.) — ya no hace falta
-   el paso de "Filter data table" en Power Automate, porque el filtro pasó
-   a ser 100% automático dentro de SAP (esto es lo que pediste: que la
-   limpieza de borradas/concluidas ya no dependa de hacerlo a mano en
-   Excel cada semana).
-9. **Add a new row** (Dataverse, opcional) en `EjecucionesScript` con
-   `TotalCandidatas = length(ListaCandidatas)`, para que quede visible
-   cuántas Solpeds entraron a esta corrida.
+8. **Aplicar un tercer criterio de exclusión: `Contrato marco` vacío**
+   (solo las Solpeds con contrato marco asignado se pueden convertir por
+   este medio — confirmado contigo). Mismo diálogo de filtro (`btn[29]`),
+   pero esta vez seleccionando directamente el campo `Contrato marco` (fila
+   7 de la lista de criterios, según tu script) y usando la pestaña
+   **"Excluir valores únicos" (`tabpNOSV`)** con el **operador "vacío" /
+   "is initial"** en vez de un valor puntual:
+   - Seleccionar el campo `Contrato marco` en el diálogo de criterios
+     (`cntlCONTAINER1_FILT`, fila 7) y aplicarlo (`btnAPP_WL_SING`, o el
+     botón `600_BUTTON` según el paso del script).
+   - Abrir el popup de valores (`btn%_%%DYN001_%`) → pestaña **"Excluir
+     valores únicos"** (`tabpNOSV`).
+   - En vez de escribir un valor, usar el botón de patrones de selección
+     (`btnRSCSEL_255-SOP_E[0,0]`) y elegir en el popup de opciones
+     (`OPTION_CONTAINER`) el operador **"Vacío" / "Is Initial"** (doble
+     clic sobre esa opción) — esto excluye todas las filas donde
+     `Contrato marco` viene en blanco.
+   - Confirmar (`btn[8]` / Enter) para aplicar.
+9. **SAP – Get table from SAP screen** sobre el resultado **ya filtrado
+   con los 3 criterios** (borrado, concluida, y contrato marco vacío) →
+   variable `ListaCandidatas`, con las mismas 32 columnas del export
+   (`Solicitud de pedido`, `Centro`, `Material`, `Contrato marco`, etc.) —
+   ya no hace falta ningún paso de "Filter data table" en Power Automate,
+   porque los 3 filtros quedan 100% automáticos dentro de SAP (esto es lo
+   que pediste: que la limpieza ya no dependa de hacerlo a mano cada
+   semana).
+10. **Add a new row** (Dataverse, opcional) en `EjecucionesScript` con
+    `TotalCandidatas = length(ListaCandidatas)`, para que quede visible
+    cuántas Solpeds entraron a esta corrida.
 
 ### Etapa B — Ejecutar la conversión en ME59N con la lista filtrada
 
