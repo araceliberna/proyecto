@@ -13,12 +13,14 @@ Unificar en un solo panel:
 - Documentos locales (reportes, plantillas).
 - Un formulario para que otra persona registre requerimientos de Solped → OC Spot.
 
-Y disparar, con botones, cuatro tipos de acción:
+Y disparar, con botones, estos tipos de acción:
 1. Registrar un formulario (Solped → OC Spot) que el CoE de Compras da seguimiento.
 2. Generar reportes/resúmenes.
 3. Enviar notificaciones.
 4. Ejecutar tareas/scripts (incl. los de SAP).
-5. Consultar estado de lo anterior.
+5. Generar Solped automáticas a OC por UN (`ME59N`), clasificando y
+   notificando los errores que SAP arroje.
+6. Consultar estado de lo anterior (incl. Radar de Riesgos).
 
 ## 2. Por qué Power Platform
 
@@ -171,6 +173,55 @@ botón de acción en el Radar de Riesgos puede ser directamente "Solicitar
 ampliación" (dispara notificación al Comprador/CoE con los datos ya
 calculados: cuánto ampliar y su valorización).
 
+## 3.3 Generación automática de Solped → OC (ME59N) y manejo de errores
+
+Para UN1/UN2 (u otras unidades de negocio que definas), la idea es que un
+botón dispare la conversión masiva de Solpeds a OC directamente en SAP
+(transacción `ME59N`), en vez de convertirlas una por una manualmente.
+
+**Cómo funciona `ME59N` y por qué falla:** SAP intenta generar el pedido
+para cada Solped seleccionada; si falta un dato (fuente de suministro no
+fijada, proveedor bloqueado, falta registro de información de compras,
+diferencia de unidad de medida, etc.) SAP no la convierte y deja un mensaje
+de error en el log de aplicación de esa ejecución (el mismo log que hoy ves
+en pantalla al correr la transacción).
+
+**Flujo propuesto para el botón "Generar Solped automáticas (ME59N)":**
+1. Power Automate Desktop abre `ME59N`, filtra por UN (UN1/UN2) y por los
+   criterios que definas (p. ej. Solpeds liberadas, sin bloqueo, con fuente
+   de suministro asignada) y ejecuta la conversión masiva.
+2. El flujo lee el log de aplicación que arroja SAP al terminar (éxitos y
+   errores por Solped/posición).
+3. Los éxitos actualizan el estado en `Solpeds_OC_Spot` a `Convertido a OC`
+   con el número de OC generado.
+4. Los errores se guardan en una tabla `ErroresME59N` (ver modelo de datos)
+   y se **clasifican automáticamente** por palabras clave del mensaje SAP
+   (p. ej. "proveedor bloqueado", "sin fuente de suministro", "diferencia de
+   UM") en una categoría conocida.
+5. Según la categoría, el flujo notifica a quien corresponde: proveedor
+   bloqueado → Compras/Finanzas; sin fuente de suministro o dato maestro →
+   Planeador; el resto → categoría "Otro" para revisión manual.
+6. Estos errores también alimentan el Radar de Riesgos como una alerta más
+   ("Solped sin convertir") junto a las 4-5 ya definidas.
+
+**Tabla `ErroresME59N`**
+| Campo | Tipo | Notas |
+|---|---|---|
+| ID | Autonumérico | |
+| NumeroSolped | Texto | |
+| Posicion | Texto | |
+| Material | Texto | |
+| UnidadNegocio | Choice | `UN1` / `UN2` / otras |
+| MensajeSAP | Texto largo | Mensaje de error tal cual lo entrega SAP |
+| Categoria | Choice | `Proveedor bloqueado` / `Sin fuente de suministro` / `Dato maestro` / `Diferencia UM` / `Otro` |
+| Estado | Choice | `Pendiente` / `Resuelto` |
+| ResponsableNotificado | Persona | Según la categoría |
+| FechaEjecucion | Fecha/hora | |
+
+*Nota:* la clasificación por palabras clave es un punto de partida; conviene
+revisar contigo el listado real de mensajes de error que arroja `ME59N` en
+tu operación para afinar las categorías y evitar que caigan todos en "Otro".
+
 ## 4. Modelo de datos (Dataverse / SharePoint)
 
 **Tabla `Solpeds_OC_Spot`**
@@ -235,7 +286,17 @@ calculados: cuánto ampliar y su valorización).
 - Los reportes que hoy exportas manualmente de SAP se documentan como el
   mismo tipo de acción, para dejar rastro de cuándo y quién los generó.
 
-### 5.5 "Consultar estado"
+### 5.5 "Generar Solped automáticas (ME59N)"
+- Botón por UN (UN1/UN2) que dispara el flujo descrito en la sección 3.3:
+  corre `ME59N` para las Solpeds candidatas de esa unidad de negocio.
+- Muestra al terminar un resumen: cuántas se convirtieron a OC y cuántas
+  quedaron en error, con enlace directo a la pantalla de estado para ver
+  el detalle clasificado de los errores (`ErroresME59N`).
+- Los errores no se pierden en el log de SAP: quedan clasificados y
+  notificados a quien debe resolverlos (Compras/Finanzas si es proveedor
+  bloqueado, Planeador si es un dato maestro faltante, etc.).
+
+### 5.6 "Consultar estado"
 - Pantalla con 4 galerías: Solpeds (con su estado y quién las creó),
   últimas ejecuciones de scripts (éxito/error), reportes generados, y
   **Radar de Riesgos** (quiebres de SS desde `QuiebresSS`, más las otras
