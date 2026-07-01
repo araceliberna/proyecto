@@ -194,23 +194,48 @@ diferencia de unidad de medida, etc.) SAP no la convierte y deja un mensaje
 de error en el log de aplicación de esa ejecución (el mismo log que hoy ves
 en pantalla al correr la transacción).
 
-**Flujo propuesto para el botón "Generar Solped automáticas (ME59N)":**
-1. Power Automate Desktop abre `ME59N`, filtra por UN (UN1/UN2) y por los
-   criterios que definas (p. ej. Solpeds liberadas, sin bloqueo, con fuente
-   de suministro asignada) y ejecuta la conversión masiva.
-2. El flujo lee el log de aplicación que arroja SAP al terminar (éxitos y
+**Fuente confirmada de "Solpeds sin atender":** hoy ya existe un script
+GUI Scripting (`ME5A.txt`) que extrae exactamente ese universo desde SAP:
+transacción `ME5A`, filtrando Grupo de compras (`EKGRP`) = `005`, Centro
+(`S_WERKS`) = `10*`/`15*`/`16*`, y Estado (`S_STATU-LOW`) = `N` ("no
+tratadas"). El export de ejemplo revisado (10,913 filas) confirma que
+`Pedido` está vacío en el 100% de las filas — es decir, es el universo de
+Solpeds que aún no tienen OC. Ese export trae también las columnas
+`Indicador de borrado` (`true`/`false`) y `Concluida` (`X`/vacío), que hoy
+se deberían descartar antes de mandar la lista a `ME59N`, pero ese filtro
+no está automatizado todavía.
+
+**Flujo propuesto para el botón "Generar Solped automáticas (ME59N)"**
+(detalle acción por acción en `docs/codigo/flujos-power-automate.md`,
+Flow 2b):
+1. Power Automate Desktop corre `ME5A` con los mismos filtros del script
+   actual (Grupo de compras 005, Centro 10*/15*/16*, Estado `N`) y trae el
+   resultado a una tabla en el flow (ya no exporta a Excel manualmente).
+2. **Filtra automáticamente** esa tabla descartando `Indicador de borrado
+   = true` y `Concluida = X` → lista limpia de Solpeds candidatas. Este es
+   el paso que hoy falta automatizar.
+3. Con esa lista, abre `ME59N` y ejecuta la conversión masiva (por UN1/UN2
+   u otro criterio adicional que definas).
+4. El flujo lee el log de aplicación que arroja SAP al terminar (éxitos y
    errores por Solped/posición).
-3. Los éxitos actualizan el estado en `Solpeds_OC_Spot` a `Convertido a OC`
+5. Los éxitos actualizan el estado en `Solpeds_OC_Spot` a `Convertido a OC`
    con el número de OC generado.
-4. Los errores se guardan en una tabla `ErroresME59N` (ver modelo de datos)
+6. Los errores se guardan en una tabla `ErroresME59N` (ver modelo de datos)
    y se **clasifican automáticamente** por palabras clave del mensaje SAP
    (p. ej. "proveedor bloqueado", "sin fuente de suministro", "diferencia de
-   UM") en una categoría conocida.
-5. Según la categoría, el flujo notifica a quien corresponde: proveedor
+   UM") en una categoría conocida — pendiente de afinar con ejemplos reales
+   de los mensajes que da tu `ME59N`.
+7. Según la categoría, el flujo notifica a quien corresponde: proveedor
    bloqueado → Compras/Finanzas; sin fuente de suministro o dato maestro →
    Planeador; el resto → categoría "Otro" para revisión manual.
-6. Estos errores también alimentan el Radar de Riesgos como una alerta más
+8. Estos errores también alimentan el Radar de Riesgos como una alerta más
    ("Solped sin convertir") junto a las 4-5 ya definidas.
+
+**Aún pendiente de tu parte:** el script/proceso real de `ME59N` (cómo
+seleccionas hoy las Solpeds candidatas dentro de esa transacción — ¿pegas
+la lista de números, o filtras por los mismos criterios de `ME5A`
+directamente en `ME59N`?) y 5-10 ejemplos reales de los mensajes de error
+que te da al no poder convertir una Solped.
 
 **Tabla `ErroresME59N`**
 | Campo | Tipo | Notas |

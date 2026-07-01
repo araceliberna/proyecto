@@ -94,24 +94,58 @@ Switch/If — y ajústala cuando me pases el listado real de mensajes de tu
 ## Flow 2b — "ME59N - Conversion Masiva" (Power Automate **Desktop**)
 
 Este corre en tu PC (o VM) con SAP GUI abierto, vía Power Automate Desktop.
-Secuencia de acciones (catálogo "SAP" del diseñador de escritorio):
+Se confirmó con el script real (`ME5A.txt`) y el export de ejemplo
+(10,913 filas) cómo se arma hoy la lista de "Solpeds sin atender", así que
+el flow queda en dos etapas: **A) generar la lista de candidatas** y
+**B) correr `ME59N`** solo con esas.
+
+### Etapa A — Generar lista de candidatas (basado en tu script ME5A actual)
 
 1. **SAP – Launch SAP Logon and log on to SAP** (o **Attach to running
-   instance** si ya tienes sesión abierta).
-2. **SAP – Run transaction**: `ME59N`.
-3. **SAP – Set field value** / **Send SAP shortcut** para aplicar el
-   filtro por unidad de negocio (`UnidadNegocio`, parámetro recibido del
-   flow cloud) y demás criterios (Solpeds liberadas, sin bloqueo, etc.)
-4. **SAP – Run current transaction** (ejecutar la selección/conversión
-   masiva).
-5. **SAP – Get table from SAP screen** (o **Export data to Excel**) sobre
-   el log de aplicación resultante: esto te da una tabla con columnas tipo
-   `Solped`, `Posición`, `Mensaje`, `Tipo` (éxito/error).
-6. **Filter data table** dos veces: una para quedarte con las filas de
+   instance**).
+2. **SAP – Run transaction**: `ME5A`.
+3. **SAP – Set field value** en la selección múltiple de Grupo de compras
+   (`EKGRP`) = `005` (igual que tu script).
+4. **SAP – Set field value** en la selección múltiple de Centro
+   (`S_WERKS`), 3 líneas: `10*`, `15*`, `16*` (igual que tu script).
+5. **SAP – Set field value** en `S_STATU-LOW` = `N` (estado "no tratadas",
+   confirmado contigo).
+6. **SAP – Run current transaction** (F8 / btn[8]).
+7. **SAP – Get table from SAP screen** sobre el resultado (en vez de
+   exportar a Excel como hoy, se trae directo a una variable/data table
+   del flow) → variable `ListaME5A`, con las mismas 32 columnas del export
+   (`Solicitud de pedido`, `Indicador de borrado`, `Concluida`, etc.)
+8. **Filter data table** sobre `ListaME5A`, con la condición:
+   `Indicador de borrado <> "true"` **Y** `Concluida <> "X"`
+   → variable `ListaCandidatas`. Este es el filtro automático que pediste:
+   ya no hace falta limpiarlo a mano en Excel cada vez.
+9. **Add a new row** (Dataverse, opcional) en `EjecucionesScript` con
+   `TotalME5A = length(ListaME5A)`, `TotalCandidatas =
+   length(ListaCandidatas)`, para que quede visible cuántas se descartaron
+   por borrado/concluida en cada corrida.
+
+### Etapa B — Ejecutar la conversión en ME59N con la lista filtrada
+
+1. **SAP – Run transaction**: `ME59N`.
+2. **Loop for each** sobre `ListaCandidatas` (o, si `ME59N` permite pegar
+   una lista de "Solicitud de pedido" en una selección múltiple igual que
+   en `ME5A`, mejor usar **SAP – Set field value** una sola vez con todos
+   los números concatenados, en vez de repetir el loop — más rápido).
+3. **SAP – Run current transaction** (ejecutar la conversión masiva).
+4. **SAP – Get table from SAP screen** sobre el log de aplicación
+   resultante: columnas tipo `Solped`, `Posición`, `Mensaje`, `Tipo`
+   (éxito/error).
+5. **Filter data table** dos veces: una para quedarte con las filas de
    éxito (`Tipo = Éxito`) → variable `ListaExitos`; otra con las de error
    (`Tipo = Error`) → variable `ListaErrores`.
-7. **Return values from flow** (acción de cierre del flow de escritorio):
-   `ListaExitos`, `ListaErrores`.
+6. **Return values from flow** (acción de cierre del flow de escritorio):
+   `ListaExitos`, `ListaErrores`, `TotalME5A`, `TotalCandidatas`.
+
+*Pendiente de confirmar contigo:* si `ME59N` acepta directamente una lista
+de números de "Solicitud de pedido" pegada en una selección múltiple (como
+`ME5A`), o si tu proceso hoy selecciona las filas una por una en pantalla.
+Con eso decido si el paso 2 de la Etapa B es un solo `Set field value` o un
+`Loop for each` (más lento, una entrada SAP por Solped).
 
 ---
 
