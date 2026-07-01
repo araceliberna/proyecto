@@ -200,35 +200,38 @@ transacción `ME5A`, filtrando Grupo de compras (`EKGRP`) = `005`, Centro
 (`S_WERKS`) = `10*`/`15*`/`16*`, y Estado (`S_STATU-LOW`) = `N` ("no
 tratadas"). El export de ejemplo revisado (10,913 filas) confirma que
 `Pedido` está vacío en el 100% de las filas — es decir, es el universo de
-Solpeds que aún no tienen OC. Ese export trae también las columnas
-`Indicador de borrado` (`true`/`false`) y `Concluida` (`X`/vacío), que hoy
-se deberían descartar antes de mandar la lista a `ME59N`, pero ese filtro
-no está automatizado todavía.
+Solpeds que aún no tienen OC.
+
+**Filtro de exclusión ya resuelto:** el mismo script ya incluye la
+limpieza que se necesitaba automatizar — usa el filtro nativo del ALV de
+`ME5A` (botón "Filtro" del grid) para excluir `Indicador de borrado =
+true` y `Concluida = X` **antes** de traer el resultado, en vez de
+depender de limpiarlo a mano en Excel cada semana. Se reutiliza tal cual
+en el flujo (detalle en `docs/codigo/flujos-power-automate.md`, Flow 2b,
+Etapa A, paso 7).
 
 **Flujo propuesto para el botón "Generar Solped automáticas (ME59N)"**
 (detalle acción por acción en `docs/codigo/flujos-power-automate.md`,
 Flow 2b):
 1. Power Automate Desktop corre `ME5A` con los mismos filtros del script
-   actual (Grupo de compras 005, Centro 10*/15*/16*, Estado `N`) y trae el
-   resultado a una tabla en el flow (ya no exporta a Excel manualmente).
-2. **Filtra automáticamente** esa tabla descartando `Indicador de borrado
-   = true` y `Concluida = X` → lista limpia de Solpeds candidatas. Este es
-   el paso que hoy falta automatizar.
-3. Con esa lista, abre `ME59N` y ejecuta la conversión masiva (por UN1/UN2
-   u otro criterio adicional que definas).
-4. El flujo lee el log de aplicación que arroja SAP al terminar (éxitos y
+   actual (Grupo de compras 005, Centro 10*/15*/16*, Estado `N`), aplica
+   el filtro nativo de exclusión (borrado/concluida) y trae el resultado
+   ya limpio a una tabla en el flow (ya no exporta a Excel manualmente).
+2. Con esa lista de candidatas, abre `ME59N` y ejecuta la conversión masiva
+   (por UN1/UN2 u otro criterio adicional que definas).
+3. El flujo lee el log de aplicación que arroja SAP al terminar (éxitos y
    errores por Solped/posición).
-5. Los éxitos actualizan el estado en `Solpeds_OC_Spot` a `Convertido a OC`
+4. Los éxitos actualizan el estado en `Solpeds_OC_Spot` a `Convertido a OC`
    con el número de OC generado.
-6. Los errores se guardan en una tabla `ErroresME59N` (ver modelo de datos)
+5. Los errores se guardan en una tabla `ErroresME59N` (ver modelo de datos)
    y se **clasifican automáticamente** por palabras clave del mensaje SAP
    (p. ej. "proveedor bloqueado", "sin fuente de suministro", "diferencia de
    UM") en una categoría conocida — pendiente de afinar con ejemplos reales
    de los mensajes que da tu `ME59N`.
-7. Según la categoría, el flujo notifica a quien corresponde: proveedor
+6. Según la categoría, el flujo notifica a quien corresponde: proveedor
    bloqueado → Compras/Finanzas; sin fuente de suministro o dato maestro →
    Planeador; el resto → categoría "Otro" para revisión manual.
-8. Estos errores también alimentan el Radar de Riesgos como una alerta más
+7. Estos errores también alimentan el Radar de Riesgos como una alerta más
    ("Solped sin convertir") junto a las 4-5 ya definidas.
 
 **Aún pendiente de tu parte:** el script/proceso real de `ME59N` (cómo

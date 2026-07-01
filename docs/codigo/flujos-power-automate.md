@@ -111,18 +111,31 @@ el flow queda en dos etapas: **A) generar la lista de candidatas** y
 5. **SAP – Set field value** en `S_STATU-LOW` = `N` (estado "no tratadas",
    confirmado contigo).
 6. **SAP – Run current transaction** (F8 / btn[8]).
-7. **SAP – Get table from SAP screen** sobre el resultado (en vez de
-   exportar a Excel como hoy, se trae directo a una variable/data table
-   del flow) → variable `ListaME5A`, con las mismas 32 columnas del export
-   (`Solicitud de pedido`, `Indicador de borrado`, `Concluida`, etc.)
-8. **Filter data table** sobre `ListaME5A`, con la condición:
-   `Indicador de borrado <> "true"` **Y** `Concluida <> "X"`
-   → variable `ListaCandidatas`. Este es el filtro automático que pediste:
-   ya no hace falta limpiarlo a mano en Excel cada vez.
+7. **Aplicar el filtro de exclusión nativo del ALV** (esto ya lo tienes
+   scripteado — se reutiliza tal cual, es más confiable que filtrar la
+   tabla después en Power Automate porque usa el propio motor de filtros
+   de SAP):
+   - **SAP – Press button** `btn[29]` de la barra de herramientas del
+     grid (ícono "Filtro").
+   - Buscar el campo `Indicador de borrado` en el diálogo de criterios
+     (`&FIND` con texto `"indicad"`), seleccionarlo, aplicar
+     (`btnAPP_WL_SING`).
+   - Abrir el popup de selección de valores del campo (`btn%_%%DYN001_%`),
+     ir a la pestaña de **exclusión de valores únicos**, y excluir `true`.
+   - Repetir para el segundo campo (`DYN002`, columna `Concluida`),
+     excluyendo `X`.
+   - Confirmar (`btn[8]` / Enter) para que el ALV quede filtrado, sin
+     filas `Indicador de borrado = true` ni `Concluida = X`.
+8. **SAP – Get table from SAP screen** sobre el resultado **ya filtrado**
+   → variable `ListaCandidatas`, con las mismas 32 columnas del export
+   (`Solicitud de pedido`, `Centro`, `Material`, etc.) — ya no hace falta
+   el paso de "Filter data table" en Power Automate, porque el filtro pasó
+   a ser 100% automático dentro de SAP (esto es lo que pediste: que la
+   limpieza de borradas/concluidas ya no dependa de hacerlo a mano en
+   Excel cada semana).
 9. **Add a new row** (Dataverse, opcional) en `EjecucionesScript` con
-   `TotalME5A = length(ListaME5A)`, `TotalCandidatas =
-   length(ListaCandidatas)`, para que quede visible cuántas se descartaron
-   por borrado/concluida en cada corrida.
+   `TotalCandidatas = length(ListaCandidatas)`, para que quede visible
+   cuántas Solpeds entraron a esta corrida.
 
 ### Etapa B — Ejecutar la conversión en ME59N con la lista filtrada
 
