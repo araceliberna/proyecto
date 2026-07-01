@@ -62,6 +62,67 @@ Diagrama de flujo (alto nivel):
                 (estado de cada Solped/OC, últimas ejecuciones de scripts, reportes generados)
 ```
 
+## 3.1 Fuente concreta: Reporte SS (quiebres de stock de seguridad)
+
+Hoy este reporte es un Excel semanal con macros (`Reporte SS Semana N-2026.xlsm`,
+~55 MB) que se arma a mano cruzando varias extracciones de SAP. Su estructura,
+que sirve de base para automatizarlo:
+
+- Hoja **`BD`**: tabla maestra (77 columnas, ~75,000 filas), clave `C&M`
+  (Centro + Material), que cruza:
+  - `SP` (Solicitudes de pedido / Solpeds)
+  - `OC` (Órdenes de compra)
+  - `ME2N` (seguimiento de pedidos SAP)
+  - `Stock en piso` (extracción tipo MB52)
+  - `Consumos`, `Consumo Histórico`, `Ingresos`, `Reservas`, `Contratos`
+- Columna clave **`Status sobrestock`**: `En stock` / `Quiebre` / `Sobre Stock`.
+  Regla: `Quiebre` cuando `Stock actual < Stock de seguridad` (columna `Dif`
+  negativa).
+- Columna **`Status Consumo`**: `Óptimo` / `Baja rotación` / `Inmovilizado` /
+  `Sin consumo histórico` — complementa el diagnóstico de cada material.
+- Hoja **`Resultados`**: resumen tipo pivot con el % de `Quiebre` / `En stock`
+  / `Sobre Stock` por tipo de material (ZERS, ZHIB), filtrado por Sociedad,
+  Contrato y Grupo de compras.
+
+**Por qué no conviene que el botón "actualice el Excel":** el archivo pesa
+~55 MB, tiene macros, y depende de refrescar manualmente varias consultas SAP
+distintas cada semana. En vez de eso, el botón debe disparar la actualización
+de una tabla en Dataverse:
+
+**Tabla `QuiebresSS`** (equivalente a la hoja `BD`, sólo los campos que
+alimentan la alerta y el filtro)
+| Campo | Tipo | Notas |
+|---|---|---|
+| ID | Autonumérico | |
+| CentroMaterial | Texto | Clave `C&M` (Centro + Material) |
+| Centro | Texto | |
+| Material | Texto | |
+| TextoBreve | Texto | Descripción del material |
+| TipoMaterial | Choice | `ZERS` / `ZHIB` / `ZNLA` |
+| StockSeguridad | Número | |
+| StockActual | Número | |
+| Diferencia | Número | `StockActual - StockSeguridad` |
+| StatusStock | Choice | `En stock` / `Quiebre` / `Sobre Stock` |
+| StatusConsumo | Choice | `Óptimo` / `Baja rotación` / `Inmovilizado` / `Sin consumo histórico` |
+| Proveedor | Texto | |
+| FechaEntregaOC | Fecha | Si hay OC abierta relacionada |
+| FechaReporte | Fecha/hora | Última actualización (reemplaza el refresh manual semanal) |
+
+**Flujo propuesto para el botón "Actualizar quiebres de SS":**
+1. Power Automate Desktop ejecuta las mismas consultas SAP que hoy alimentan
+   `SP`, `OC`, `ME2N`, `MB52`, Consumos, Ingresos, Reservas y Contratos
+   (reusando/parametrizando los scripts GUI Scripting existentes).
+2. Un paso de transformación reproduce el cruce que hoy hace la hoja `BD`
+   (join por Centro+Material) y calcula `StatusStock` con la misma regla
+   (`StockActual < StockSeguridad` → `Quiebre`).
+3. Se hace un *upsert* a la tabla `QuiebresSS` en Dataverse (reemplaza filas
+   por `CentroMaterial`, no re-crea todo).
+4. La pantalla "Consultar estado" / Radar de Riesgos lee `QuiebresSS`
+   directamente — sin abrir el Excel, y con historial de cuándo fue la
+   última actualización.
+5. Opcional: seguir generando el Excel semanal como archivo de respaldo
+   (guardado en SharePoint), pero ya no como fuente en vivo del dashboard.
+
 ## 4. Modelo de datos (Dataverse / SharePoint)
 
 **Tabla `Solpeds_OC_Spot`**
@@ -127,9 +188,16 @@ Diagrama de flujo (alto nivel):
   mismo tipo de acción, para dejar rastro de cuándo y quién los generó.
 
 ### 5.5 "Consultar estado"
-- Pantalla con 3 galerías: Solpeds (con su estado y quién las creó),
-  últimas ejecuciones de scripts (éxito/error), y reportes generados.
-- Filtros por fecha, estado y solicitante.
+- Pantalla con 4 galerías: Solpeds (con su estado y quién las creó),
+  últimas ejecuciones de scripts (éxito/error), reportes generados, y
+  **Radar de Riesgos** (quiebres de SS desde `QuiebresSS`, más las otras
+  alertas del mockup: saldo de contrato bajo, proveedor bloqueado, entrega
+  en riesgo, presupuesto en riesgo — ver `docs/mockups/radar-riesgos.html`).
+- Filtros por fecha, estado, solicitante, tipo de material (ZERS/ZHIB/ZNLA)
+  y urgencia.
+- Un botón "Actualizar quiebres de SS" dispara el flujo descrito en la
+  sección 3.1 y refresca `QuiebresSS` bajo demanda (además de poder
+  programarse automáticamente, p. ej. cada mañana).
 
 ## 6. Seguridad y accesos (tu preocupación principal)
 
