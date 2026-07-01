@@ -30,10 +30,10 @@ Crea, una por una, las tablas del documento de arquitectura. Para cada una:
    - `Persona` → "Lookup" a la tabla `User` (o `Azure AD Object`, según el
      conector) — esto te da el selector de gente de tu organización.
 3. Repite para las 6 tablas: `Solpeds_OC_Spot`, `EjecucionesScript`,
-   `Reportes`, `QuiebresSS`, `ContratosSaldo`, `ErroresME59N`.
+   `Reportes`, `EstadoStockSS`, `ContratosSaldo`, `ErroresME59N`.
 
 **Orden recomendado:** primero `Solpeds_OC_Spot` (la usarás enseguida en el
-formulario), luego `QuiebresSS` y `ContratosSaldo` (alimentan el Radar de
+formulario), luego `EstadoStockSS` y `ContratosSaldo` (alimentan el Radar de
 Riesgos), después `ErroresME59N`, y al final `EjecucionesScript` y `Reportes`.
 
 **Permisos por fila:** en cada tabla, pestaña **Settings → Security roles**,
@@ -54,7 +54,7 @@ crea o edita los roles `Planeamiento` y `CoE Compras` con los permisos
 4. Conecta los orígenes de datos: menú **Data** (panel izquierdo) → **+ Add
    data** → busca y agrega cada tabla de Dataverse creada en el Paso 1.
 5. En cada pantalla, usa una **Gallery** conectada a la tabla correspondiente
-   (`QuiebresSS` en Radar/Stockflow, `Solpeds_OC_Spot` en ConsultarEstado,
+   (`EstadoStockSS` en Radar/Stockflow, `Solpeds_OC_Spot` en ConsultarEstado,
    etc.) para mostrar los datos, tal como en la simulación HTML.
 
 ## Paso 3 — Configurar las acciones (Power Automate) detrás de cada botón
@@ -78,10 +78,10 @@ seleccionas el botón → pestaña **Action → Power Automate** → **+ Add flo
   4. Guarda el flow. No necesita conectarse manualmente al botón: se
      dispara solo cuando `Patch` crea la fila.
 
-### 3.2 Botón "Actualizar quiebres de SS" / "Actualizar saldo de contratos"
+### 3.2 Botón "Actualizar estado de stock SS" / "Actualizar saldo de contratos"
 Estos sí requieren **Power Automate Desktop** porque hablan con SAP GUI:
 1. Abre **Power Automate** (app de escritorio) → **+ New flow** →
-   "Actualizar QuiebresSS".
+   "Actualizar estado de stock SS".
 2. Reutiliza ahí la lógica de tu script GUI Scripting actual: usa las
    acciones "SAP" del catálogo de Power Automate Desktop (Launch/attach
    SAP session, Run transaction, Export table to Excel/variable) para
@@ -89,7 +89,7 @@ Estos sí requieren **Power Automate Desktop** porque hablan con SAP GUI:
 3. Agrega un bloque que arme el cruce (igual que la hoja `BD`) y calcule
    `StatusStock` (`Quiebre` si `StockActual < StockSeguridad`).
 4. Al final, usa la acción **"Invoke Dataverse action"** o el conector
-   Dataverse para hacer upsert en la tabla `QuiebresSS` (una fila por
+   Dataverse para hacer upsert en la tabla `EstadoStockSS` (una fila por
    `CentroMaterial`).
 5. Guarda el flow de escritorio. Luego, en **Power Automate (cloud)**, crea
    un flow "padre":
@@ -99,7 +99,7 @@ Estos sí requieren **Power Automate Desktop** porque hablan con SAP GUI:
      seleccionando el flow de escritorio del paso anterior. Esto requiere
      una máquina con **Power Automate Desktop gateway** instalada y el SAP
      GUI configurado (tu PC, o una VM dedicada).
-6. En Power Apps, en el botón "Actualizar quiebres de SS": pestaña
+6. En Power Apps, en el botón "Actualizar estado de stock SS": pestaña
    **Action → Power Automate**, selecciona este flow "padre" y en
    `OnSelect` agrégalo con `NombreDelFlow.Run()`.
 

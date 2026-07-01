@@ -91,8 +91,14 @@ que sirve de base para automatizarlo:
 distintas cada semana. En vez de eso, el botón debe disparar la actualización
 de una tabla en Dataverse:
 
-**Tabla `QuiebresSS`** (equivalente a la hoja `BD`, sólo los campos que
-alimentan la alerta y el filtro)
+**Importante — la tabla no es solo "quiebres":** debe cargar **todos los
+materiales** (`En stock`, `Quiebre` y `Sobre Stock`), no solo los que están
+en quiebre hoy. Así Stockflow y el Radar de Riesgos pueden generar alertas
+también sobre materiales que están cerca del límite de stock de seguridad
+o en sobre stock, no únicamente sobre los que ya quebraron.
+
+**Tabla `EstadoStockSS`** (equivalente a la hoja `BD` completa, con todos los
+materiales — sólo los campos que alimentan la alerta y el filtro)
 | Campo | Tipo | Notas |
 |---|---|---|
 | ID | Autonumérico | |
@@ -110,16 +116,18 @@ alimentan la alerta y el filtro)
 | FechaEntregaOC | Fecha | Si hay OC abierta relacionada |
 | FechaReporte | Fecha/hora | Última actualización (reemplaza el refresh manual semanal) |
 
-**Flujo propuesto para el botón "Actualizar quiebres de SS":**
+**Flujo propuesto para el botón "Actualizar estado de stock SS":**
 1. Power Automate Desktop ejecuta las mismas consultas SAP que hoy alimentan
    `SP`, `OC`, `ME2N`, `MB52`, Consumos, Ingresos, Reservas y Contratos
    (reusando/parametrizando los scripts GUI Scripting existentes).
 2. Un paso de transformación reproduce el cruce que hoy hace la hoja `BD`
-   (join por Centro+Material) y calcula `StatusStock` con la misma regla
-   (`StockActual < StockSeguridad` → `Quiebre`).
-3. Se hace un *upsert* a la tabla `QuiebresSS` en Dataverse (reemplaza filas
-   por `CentroMaterial`, no re-crea todo).
-4. La pantalla "Consultar estado" / Radar de Riesgos lee `QuiebresSS`
+   (join por Centro+Material) para **todos los materiales**, calculando
+   `StatusStock` con la misma regla (`StockActual < StockSeguridad` →
+   `Quiebre`; si no, `En stock` o `Sobre Stock` según corresponda).
+3. Se hace un *upsert* a la tabla `EstadoStockSS` en Dataverse con **la
+   totalidad de los materiales** (reemplaza filas por `CentroMaterial`, no
+   solo agrega los que están en quiebre).
+4. La pantalla "Consultar estado" / Radar de Riesgos lee `EstadoStockSS`
    directamente — sin abrir el Excel, y con historial de cuándo fue la
    última actualización.
 5. Opcional: seguir generando el Excel semanal como archivo de respaldo
@@ -166,7 +174,7 @@ Mismo patrón que el Reporte SS: un Excel semanal pesado (`CONTRATOS_SEM_N.xlsb`
 | FechaReporte | Fecha/hora | Última actualización |
 
 **Flujo del botón "Actualizar saldo de contratos"**: igual patrón que
-`QuiebresSS` — Power Automate Desktop corre las consultas SAP detrás de
+`EstadoStockSS` — Power Automate Desktop corre las consultas SAP detrás de
 `ME3M`, `Consumo`, `MB51` y `ME5A`, reproduce el cruce y el cálculo de
 `PorAmpliar`, y hace upsert en `ContratosSaldo`. Con `PorAmpliar = Sí`, el
 botón de acción en el Radar de Riesgos puede ser directamente "Solicitar
@@ -299,14 +307,18 @@ tu operación para afinar las categorías y evitar que caigan todos en "Otro".
 ### 5.6 "Consultar estado"
 - Pantalla con 4 galerías: Solpeds (con su estado y quién las creó),
   últimas ejecuciones de scripts (éxito/error), reportes generados, y
-  **Radar de Riesgos** (quiebres de SS desde `QuiebresSS`, más las otras
-  alertas del mockup: saldo de contrato bajo, proveedor bloqueado, entrega
-  en riesgo, presupuesto en riesgo — ver `docs/mockups/radar-riesgos.html`).
-- Filtros por fecha, estado, solicitante, tipo de material (ZERS/ZHIB/ZNLA)
-  y urgencia.
-- Un botón "Actualizar quiebres de SS" dispara el flujo descrito en la
-  sección 3.1 y refresca `QuiebresSS` bajo demanda (además de poder
-  programarse automáticamente, p. ej. cada mañana).
+  **Radar de Riesgos**, alimentado por `EstadoStockSS` (que trae **todos**
+  los materiales, no solo los que están en quiebre), más las otras alertas
+  del mockup: saldo de contrato bajo, proveedor bloqueado, entrega en
+  riesgo, presupuesto en riesgo — ver `docs/mockups/radar-riesgos.html`.
+  Al traer todos los estados (`En stock`, `Quiebre`, `Sobre Stock`), el
+  Radar puede alertar también sobre materiales en sobre stock o cerca de
+  caer en quiebre, no solo los que ya quebraron.
+- Filtros por fecha, estado, solicitante, tipo de material (ZERS/ZHIB/ZNLA),
+  urgencia y **estado de stock** (`En stock` / `Quiebre` / `Sobre Stock`).
+- Un botón "Actualizar estado de stock SS" dispara el flujo descrito en la
+  sección 3.1 y refresca `EstadoStockSS` completo bajo demanda (además de
+  poder programarse automáticamente, p. ej. cada mañana).
 
 ## 6. Seguridad y accesos (tu preocupación principal)
 
