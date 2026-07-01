@@ -123,6 +123,54 @@ alimentan la alerta y el filtro)
 5. Opcional: seguir generando el Excel semanal como archivo de respaldo
    (guardado en SharePoint), pero ya no como fuente en vivo del dashboard.
 
+## 3.2 Fuente concreta: Reporte de Contratos (saldo y ampliación)
+
+Mismo patrón que el Reporte SS: un Excel semanal pesado (`CONTRATOS_SEM_N.xlsb`,
+~60 MB) que cruza varias extracciones SAP en una hoja maestra.
+
+- Hoja **`TOTAL CONTRATOS`**: tabla maestra (61 columnas, clave `C&M` =
+  Centro+Material), que cruza:
+  - `ME3M` (posiciones de contrato marco en SAP: cantidades, valores, proveedor)
+  - `Consumo` (consumo real acumulado por material)
+  - `MB51` (movimientos de material, para trazar consumo/salidas)
+  - `ME5A` (solicitudes de pedido pendientes contra el contrato)
+- Columnas clave: `Cantidad Total`, `Cantidad Pendiente`, `SALDO CANTIDAD`,
+  `Consumo mensual`, `Consumo proyectado hasta final del contrato`,
+  `Saldo valorizado`, `Fecha Inicio`/`Fecha Fin`, `Días en contrato`.
+- Columna **`Por ampliar`**: `No` / `Sí` / `Revisión por el COE`. Se marca
+  `Sí` cuando `SALDO CANTIDAD < 0` (el consumo proyectado hasta el fin del
+  contrato supera lo que queda pendiente/disponible), y trae ya calculado
+  `Cantidad a ampliar` y `Valorizado a ampliar` — el insumo directo para la
+  alerta "📊 Saldo Contrato Bajo" del Radar de Riesgos.
+
+**Tabla `ContratosSaldo`** (Dataverse, equivalente resumido de `TOTAL CONTRATOS`)
+| Campo | Tipo | Notas |
+|---|---|---|
+| ID | Autonumérico | |
+| CentroMaterial | Texto | Clave `C&M` |
+| Contrato | Texto | Nº de contrato marco |
+| Posicion | Texto | `POS` |
+| Proveedor | Texto | |
+| CantidadTotal | Número | |
+| CantidadPendiente | Número | |
+| SaldoCantidad | Número | |
+| ConsumoMensual | Número | |
+| ConsumoProyectado | Número | Hasta fin de contrato |
+| SaldoValorizado | Número | |
+| PorAmpliar | Choice | `No` / `Sí` / `Revisión por el COE` |
+| CantidadAAmpliar | Número | |
+| ValorizadoAAmpliar | Número | |
+| FechaFinContrato | Fecha | |
+| FechaReporte | Fecha/hora | Última actualización |
+
+**Flujo del botón "Actualizar saldo de contratos"**: igual patrón que
+`QuiebresSS` — Power Automate Desktop corre las consultas SAP detrás de
+`ME3M`, `Consumo`, `MB51` y `ME5A`, reproduce el cruce y el cálculo de
+`PorAmpliar`, y hace upsert en `ContratosSaldo`. Con `PorAmpliar = Sí`, el
+botón de acción en el Radar de Riesgos puede ser directamente "Solicitar
+ampliación" (dispara notificación al Comprador/CoE con los datos ya
+calculados: cuánto ampliar y su valorización).
+
 ## 4. Modelo de datos (Dataverse / SharePoint)
 
 **Tabla `Solpeds_OC_Spot`**
