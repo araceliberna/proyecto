@@ -49,26 +49,30 @@ No requiere trigger desde Power Apps: se dispara solo al hacer `Patch`.
    flow de escritorio `ME59N - Conversion Masiva` (ver Flow 2b abajo),
    pasando `UnidadNegocio` como parámetro de entrada.
 2. El flow de escritorio devuelve dos variables de salida: `ListaExitos`
-   (tabla) y `ListaErrores` (tabla, con columnas `Solped`, `Posicion`,
-   `Material`, `MensajeSAP`).
+   (tabla) y `ListaErrores` (tabla, con columnas `PedidoAbierto`,
+   `PosPedidoAbierto`, `Solped`, `PosSolped`, `Material`, `MensajeSAP`,
+   `ClaseMensaje`, `NumeroMensaje`) — confirmado con el log real de SAP:
+   solo se cuentan como error las filas con **ícono 🔴 (rojo)**; las 🔺
+   (naranja/triángulo) son advertencias informativas que no bloquean la
+   conversión y se descartan al armar `ListaErrores`.
 3. **Apply to each** sobre `ListaExitos`:
    - **Update a row** (Dataverse) en `Solpeds_OC_Spot` — busca por
      `NumeroSolped` igual al ítem actual, set `Estado = "Convertido a OC"`,
      `NumeroOCSpot = <ítem.OC>`.
 4. **Apply to each** sobre `ListaErrores`:
-   - **Switch** sobre el contenido de `MensajeSAP` (usar expresión
-     `contains(items('Apply_to_each')?['MensajeSAP'], 'bloqueado')`, etc.
-     — ver tabla de clasificación más abajo) → variable `Categoria`.
+   - **Switch** sobre `ClaseMensaje` + `NumeroMensaje` (más confiable que
+     buscar texto, porque el código de mensaje no cambia aunque cambie la
+     redacción) → variable `Categoria` — ver tabla de clasificación abajo.
    - **Add a new row** (Dataverse) en `ErroresME59N` con `NumeroSolped`,
      `Posicion`, `Material`, `UnidadNegocio`, `MensajeSAP`, `Categoria`,
      `Estado = "Pendiente"`.
    - **Condition** sobre `Categoria`:
-     - `"Proveedor bloqueado"` → **Post message in a chat or channel**
-       al canal de Compras/Finanzas.
-     - `"Sin fuente de suministro"` u `"Dato maestro"` → notificar al
-       Planeador (dueño de la Solped, `SolicitadoPor`).
-     - Resto (`"Otro"`) → notificar al canal general de PMI para revisión
-       manual.
+     - `"Saldo de contrato excedido"` → notificar a Comprador/CoE (mismo
+       destino que las alertas de `ContratosSaldo` — es el mismo problema
+       de fondo: el pedido abierto/contrato ya no tiene saldo).
+     - `"Error de prueba/configuración"` u `"Otro"` → notificar al canal
+       general de PMI para revisión manual (causa no identificable
+       automáticamente todavía).
 5. **Response** (si el trigger es Power Apps V2, usa la acción
    **"Respond to a PowerApp or flow"**) con dos salidas numéricas:
    `convertidas = length(ListaExitos)`, `errores = length(ListaErrores)`.
@@ -77,17 +81,37 @@ No requiere trigger desde Power Apps: se dispara solo al hacer `Patch`.
 
 ### Tabla de clasificación de errores (bloque "Switch")
 
-Cópiala tal cual como reglas `contains(MensajeSAP, "...")` dentro del
-Switch/If — y ajústala cuando me pases el listado real de mensajes de tu
-`ME59N`:
+Basada en el log real de `ME59N` que compartiste. Clasifica por
+**clase + número de mensaje** (más estable que el texto):
 
-| Si el mensaje SAP contiene... | Categoría | Notificar a |
-|---|---|---|
-| `"bloqueado"` | Proveedor bloqueado | Compras / Finanzas |
-| `"fuente de suministro"` | Sin fuente de suministro | Planeador |
-| `"información de compras"` / `"registro info"` | Dato maestro | Planeador |
-| `"unidad de medida"` / `"UM"` | Diferencia UM | Planeador |
-| (ninguna de las anteriores) | Otro | Canal PMI (revisión manual) |
+| Ícono | Clase / Nº | Mensaje | Categoría | Notificar a |
+|---|---|---|---|---|
+| 🔴 | `06` / `042` | "El valor previsto del pedido abierto {OC} se ha excedido en {monto} {moneda}" | Saldo de contrato excedido | Comprador / CoE Compras |
+| 🔴 | (sin clase clara) | "Ejecución de test incorrecta" | Error de prueba/configuración | Canal PMI (revisión manual) |
+| 🔴 | (sin clase clara) | "La solicitud de pedido no ha podido crearse" | Resultado final de fallo — **no es la causa**, es la bandera de que esa Solped/posición no se convirtió; la causa real es el mensaje 🔴 asociado en el mismo bloque del log | según la causa asociada |
+| — | (cualquier otro código) | (no visto aún) | Otro | Canal PMI (revisión manual) |
+
+Los 🔺 (naranja) que aparecieron en el mismo log (`06/207` diferencia de
+precio, `06/041` contrato vencido, `MEP.../252` centro de origen
+transferido, `ME/039` fecha de entrega en el pasado, `06/245` fecha
+realista sugerida, `ME/589` fecha estadística en el pasado) son
+**advertencias, no bloquean la conversión** — no se guardan en
+`ErroresME59N`, aunque si quieres verlas igual (para revisión manual sin
+que cuenten como error) se pueden guardar con `Estado = "Advertencia"` en
+vez de descartarlas.
+
+**Cómo agrupar el log por Solped:** el log de SAP es jerárquico — una fila
+con los identificadores (`Pedido abierto`, `Posición`, `Solped`, `Posición
+Solped`) antecede a sus mensajes asociados, hasta la siguiente fila de
+identificadores. El flow debe agrupar así: cada bloque de mensajes
+pertenece a la última fila de identificadores vista antes de él.
+
+**Aún faltan ejemplos de:** proveedor bloqueado, sin fuente de suministro,
+dato maestro faltante, diferencia de unidad de medida — las categorías que
+había puesto como hipótesis inicial no aparecieron en este log. Si tienes
+más pantallazos de corridas con esos casos, se agregan a la tabla; si
+nunca ocurren en la práctica, se puede simplificar la clasificación a solo
+las 2-3 categorías reales que sí aparecen.
 
 ---
 
@@ -174,26 +198,41 @@ el flow queda en dos etapas: **A) generar la lista de candidatas** y
 
 ### Etapa B — Ejecutar la conversión en ME59N con la lista filtrada
 
-1. **SAP – Run transaction**: `ME59N`.
-2. **Loop for each** sobre `ListaCandidatas` (o, si `ME59N` permite pegar
-   una lista de "Solicitud de pedido" en una selección múltiple igual que
-   en `ME5A`, mejor usar **SAP – Set field value** una sola vez con todos
-   los números concatenados, en vez de repetir el loop — más rápido).
-3. **SAP – Run current transaction** (ejecutar la conversión masiva).
-4. **SAP – Get table from SAP screen** sobre el log de aplicación
-   resultante: columnas tipo `Solped`, `Posición`, `Mensaje`, `Tipo`
-   (éxito/error).
-5. **Filter data table** dos veces: una para quedarte con las filas de
-   éxito (`Tipo = Éxito`) → variable `ListaExitos`; otra con las de error
-   (`Tipo = Error`) → variable `ListaErrores`.
-6. **Return values from flow** (acción de cierre del flow de escritorio):
-   `ListaExitos`, `ListaErrores`, `TotalME5A`, `TotalCandidatas`.
+Confirmado con tu script real de `ME59N`: **sí acepta pegar la lista
+completa de Solpeds candidatas de una sola vez**, igual que `ME5A` — no
+hace falta un `Loop for each` entrando una por una.
 
-*Pendiente de confirmar contigo:* si `ME59N` acepta directamente una lista
-de números de "Solicitud de pedido" pegada en una selección múltiple (como
-`ME5A`), o si tu proceso hoy selecciona las filas una por una en pantalla.
-Con eso decido si el paso 2 de la Etapa B es un solo `Set field value` o un
-`Loop for each` (más lento, una entrada SAP por Solped).
+1. **SAP – Run transaction**: `ME59N`.
+2. **SAP – Set field value** en la selección múltiple de Grupo de compras
+   (`S_EKGRP`) = `005` (igual que en `ME5A`).
+3. **SAP – Set field value** en la selección múltiple de Centro
+   (`S_WERKS`), 3 líneas: `10*`, `15*`, `16*` (igual que en `ME5A`).
+4. **Pegar la lista de candidatas en "Solicitud de pedido" (`S_BANFN`)**:
+   - **SAP – Press button** `btn%_S_BANFN_%_APP_%-VALU_PUSH` (abre el
+     popup de selección múltiple del campo).
+   - Antes de este paso, poner en el portapapeles del sistema (acción
+     **"Set clipboard text"** de Power Automate Desktop) la columna
+     `Solicitud de pedido` de `ListaCandidatas`, una por línea.
+   - **SAP – Press button** `btn[24]` dentro del popup ("Subir desde
+     portapapeles" / *Upload from clipboard*, `Shift+F12`) — esto pega
+     todos los números de una sola vez.
+   - **SAP – Press button** `btn[8]` para confirmar los valores pegados.
+5. **SAP – Run current transaction** (`F8` / `btn[8]` en la barra
+   principal) — **este es el paso que falta grabar en tu script** (lo que
+   marcaste como pendiente). Debería ser el mismo patrón que ya usas en
+   `ME5A`: `session.findById("wnd[0]/tbar[1]/btn[8]").press`. Avísame si
+   al ejecutar aparece algún paso intermedio (p. ej. una pantalla de
+   confirmación antes de la conversión masiva) para documentarlo tal cual.
+6. **SAP – Get table from SAP screen** sobre el log de aplicación
+   resultante: columnas `PedidoAbierto`, `PosPedidoAbierto`, `Solped`,
+   `PosSolped`, `Material`, ícono (🔴/🔺), `MensajeSAP`, `ClaseMensaje`,
+   `NumeroMensaje` — mismo formato que el log que compartiste.
+7. **Filter data table**: te quedas solo con las filas 🔴 (icono rojo) →
+   variable `ListaErrores` (las 🔺 se descartan o se guardan aparte como
+   advertencia, ver clasificación abajo). Las Solpeds que no aparecen con
+   ningún 🔴 asociado van a `ListaExitos`.
+8. **Return values from flow** (acción de cierre del flow de escritorio):
+   `ListaExitos`, `ListaErrores`, `TotalFiltradaSAP`, `TotalCandidatas`.
 
 ---
 

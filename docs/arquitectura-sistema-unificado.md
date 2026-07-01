@@ -224,35 +224,46 @@ Los tres primeros se reutilizan tal cual en el flujo (detalle en
 cuarto queda como un paso adicional de cálculo (paso 10 de esa misma
 etapa).
 
-**Flujo propuesto para el botón "Generar Solped automáticas (ME59N)"**
+**Flujo confirmado para el botón "Generar Solped automáticas (ME59N)"**
 (detalle acción por acción en `docs/codigo/flujos-power-automate.md`,
 Flow 2b):
 1. Power Automate Desktop corre `ME5A` con los mismos filtros del script
    actual (Grupo de compras 005, Centro 10*/15*/16*, Estado `N`), aplica
-   el filtro nativo de exclusión (borrado/concluida) y trae el resultado
-   ya limpio a una tabla en el flow (ya no exporta a Excel manualmente).
-2. Con esa lista de candidatas, abre `ME59N` y ejecuta la conversión masiva
-   (por UN1/UN2 u otro criterio adicional que definas).
-3. El flujo lee el log de aplicación que arroja SAP al terminar (éxitos y
-   errores por Solped/posición).
-4. Los éxitos actualizan el estado en `Solpeds_OC_Spot` a `Convertido a OC`
-   con el número de OC generado.
-5. Los errores se guardan en una tabla `ErroresME59N` (ver modelo de datos)
-   y se **clasifican automáticamente** por palabras clave del mensaje SAP
-   (p. ej. "proveedor bloqueado", "sin fuente de suministro", "diferencia de
-   UM") en una categoría conocida — pendiente de afinar con ejemplos reales
-   de los mensajes que da tu `ME59N`.
-6. Según la categoría, el flujo notifica a quien corresponde: proveedor
-   bloqueado → Compras/Finanzas; sin fuente de suministro o dato maestro →
-   Planeador; el resto → categoría "Otro" para revisión manual.
-7. Estos errores también alimentan el Radar de Riesgos como una alerta más
+   los 3 filtros nativos de exclusión y el cálculo de antigüedad (los 4
+   criterios de arriba) y trae el resultado ya limpio a una tabla en el
+   flow (ya no exporta a Excel manualmente).
+2. Con esa lista de candidatas, abre `ME59N`, aplica Grupo de compras 005
+   y Centro 10*/15*/16* (igual que `ME5A`), y **pega la lista completa de
+   números de Solped** en el campo de selección múltiple "Solicitud de
+   pedido" vía portapapeles — confirmado con tu script real, que ya usa
+   este mismo mecanismo (botón "Subir desde portapapeles"). No hace falta
+   entrar Solped por Solped.
+3. Ejecuta la conversión masiva (`F8` — este es el paso que aún falta
+   grabar en tu script, ver nota abajo).
+4. El flujo lee el log de aplicación que arroja SAP al terminar. Se
+   confirmó con un log real: solo las filas con **ícono 🔴 (rojo)** son
+   errores que bloquean la conversión; las 🔺 (naranja) son advertencias
+   que no bloquean.
+5. Los éxitos (Solpeds sin ningún 🔴 asociado) actualizan el estado en
+   `Solpeds_OC_Spot` a `Convertido a OC` con el número de OC generado.
+6. Los errores 🔴 se guardan en `ErroresME59N` y se **clasifican por
+   clase + número de mensaje SAP** (más confiable que buscar texto) —
+   hasta ahora se identificaron 2 causas reales: `06/042` "valor previsto
+   del pedido abierto excedido" (saldo de contrato) y "Ejecución de test
+   incorrecta" (falla de configuración, sin clase clara). Ver la tabla
+   completa en `docs/codigo/flujos-power-automate.md`.
+7. Según la categoría, el flujo notifica a quien corresponde: saldo de
+   contrato excedido → Comprador/CoE Compras (mismo destino que
+   `ContratosSaldo`); el resto → canal PMI para revisión manual.
+8. Estos errores también alimentan el Radar de Riesgos como una alerta más
    ("Solped sin convertir") junto a las 4-5 ya definidas.
 
-**Aún pendiente de tu parte:** el script/proceso real de `ME59N` (cómo
-seleccionas hoy las Solpeds candidatas dentro de esa transacción — ¿pegas
-la lista de números, o filtras por los mismos criterios de `ME5A`
-directamente en `ME59N`?) y 5-10 ejemplos reales de los mensajes de error
-que te da al no poder convertir una Solped.
+**Aún pendiente de tu parte:** grabar/confirmar el paso final de
+"Ejecutar" en tu script de `ME59N` (probablemente el mismo `btn[8]` que ya
+usas en `ME5A`), y más ejemplos de mensajes 🔴 si aparecen otras causas
+distintas a las 2 ya identificadas (proveedor bloqueado, sin fuente de
+suministro, etc. — hipótesis iniciales que aún no se han visto en un log
+real).
 
 **Tabla `ErroresME59N`**
 | Campo | Tipo | Notas |
