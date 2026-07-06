@@ -2,18 +2,18 @@
 ' ME59N_Automatico.vbs
 '
 ' Encadena tus 3 scripts reales (ME5A + 2 filtros del ALV + ME59N) en
-' uno solo, y agrega la parte que faltaba automatizar: el cálculo del
-' 4to filtro (antigüedad <= 3 días) y el paso final de "Ejecutar".
+' uno solo, y agrega la parte que faltaba automatizar: el calculo del
+' 4to filtro (antiguedad <= 3 dias) y el paso final de "Ejecutar".
 '
-' IMPORTANTE - léelo antes de correrlo:
+' IMPORTANTE - leelo antes de correrlo:
 ' Los bloques marcados "*** TAL CUAL LO GRABASTE ***" son copia textual
-' de los scripts que me pasaste -- no los toqué. Los bloques marcados
-' "*** LÓGICA NUEVA ***" son código que yo escribí y que NO ha sido
-' probado contra tu SAP real (no tengo forma de probarlo desde aquí).
+' de los scripts que me pasaste -- no los toque. Los bloques marcados
+' "*** LOGICA NUEVA ***" son codigo que yo escribi y que NO ha sido
+' probado contra tu SAP real (no tengo forma de probarlo desde aqui).
 ' Corre este script primero en un centro/lote chico o con
-' MsgBox de verificación antes de dejarlo correr solo.
+' MsgBox de verificacion antes de dejarlo correr solo.
 '
-' Requisitos: SAP Logon abierto y con la sesión ya conectada, scripting
+' Requisitos: SAP Logon abierto y con la sesion ya conectada, scripting
 ' habilitado (igual que para tus .vbs actuales). Doble clic para correr.
 ' =====================================================================
 
@@ -23,10 +23,10 @@ Dim app, connection, session
 Dim SapGuiAuto
 
 ' ---------------------------------------------------------------
-' 0) Conectarse a la sesión de SAP ya abierta *** TAL CUAL LO GRABASTE ***
+' 0) Conectarse a la sesion de SAP ya abierta *** TAL CUAL LO GRABASTE ***
 ' ---------------------------------------------------------------
 If Not IsObject(app) Then
-    Set SapGuiAuto = GetObject("SAPGUI")
+    Set SapGuiAuto = GetObject("SAPGUISERVER")
     Set app = SapGuiAuto.GetScriptingEngine
 End If
 If Not IsObject(connection) Then
@@ -44,7 +44,7 @@ session.findById("wnd[0]").resizeWorkingPane 124, 16, False
 session.findById("wnd[0]").sendVKey 0
 
 ' ---------------------------------------------------------------
-' 1) ME5A -- filtros de selección *** TAL CUAL LO GRABASTE ***
+' 1) ME5A -- filtros de seleccion *** TAL CUAL LO GRABASTE ***
 '    (EKGRP=005, Centro=10*/15*/16*, Estado=N)
 ' ---------------------------------------------------------------
 session.findById("wnd[0]/usr/btn%_BA_EKGRP_%_APP_%-VALU_PUSH").press
@@ -68,11 +68,11 @@ session.findById("wnd[0]/tbar[1]/btn[8]").press
 ' ---------------------------------------------------------------
 ' 2) Filtro ALV: excluir Indicador de borrado / Concluida
 '    *** TAL CUAL LO GRABASTE ***
-'    OJO: el paso "sendVKey 4" dentro de wnd[3] es tu grabación literal;
-'    no capturó explícitamente qué valor tecleaste ahí (probablemente
+'    OJO: el paso "sendVKey 4" dentro de wnd[3] es tu grabacion literal;
+'    no capturo explicitamente que valor tecleaste ahi (probablemente
 '    usaste F4/ayuda de valores y elegiste algo de una lista). Si al
-'    correr esto ves que NO quedó excluido correctamente, es la parte a
-'    re-grabar con más detalle (abre esa ventana paso a paso, sin
+'    correr esto ves que NO quedo excluido correctamente, es la parte a
+'    re-grabar con mas detalle (abre esa ventana paso a paso, sin
 '    saltos, y vuelve a grabar solo ese tramo).
 ' ---------------------------------------------------------------
 session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell").firstVisibleColumn = "DISPO"
@@ -99,7 +99,7 @@ session.findById("wnd[3]/tbar[0]/btn[8]").press
 session.findById("wnd[2]/tbar[0]/btn[0]").press
 
 ' ---------------------------------------------------------------
-' 3) Filtro ALV: excluir Contrato marco vacío *** TAL CUAL LO GRABASTE ***
+' 3) Filtro ALV: excluir Contrato marco vacio *** TAL CUAL LO GRABASTE ***
 ' ---------------------------------------------------------------
 session.findById("wnd[0]/tbar[1]/btn[29]").press
 session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/cntlCONTAINER1_FILT/shellcont/shell").currentCellRow = 7
@@ -122,15 +122,15 @@ session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell").firstVisibleRow = 107
 session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell").firstVisibleRow = 0
 
 ' ---------------------------------------------------------------
-' 4) *** LÓGICA NUEVA *** -- Traer la tabla filtrada a memoria
-'    (aquí ya deberían estar aplicados los 3 filtros de arriba)
+' 4) *** LOGICA NUEVA *** -- Traer la tabla filtrada a memoria
+'    (aqui ya deberian estar aplicados los 3 filtros de arriba)
 '
-'    OJO: los nombres de columna técnica (BANFN, WERKS, MATNR, KONNR,
-'    FRGDT, AEDAT) son mi mejor suposición según los campos estándar de
+'    OJO: los nombres de columna tecnica (BANFN, WERKS, MATNR, KONNR,
+'    FRGDT, AEDAT) son mi mejor suposicion segun los campos estandar de
 '    SAP para Solped/EBAN -- pero NO los he verificado contra tu layout
 '    real. Si al correr esto da error "columna no encontrada", clic
 '    derecho sobre el encabezado de esa columna en el grid > "Ayuda
-'    técnica de campo" para ver el nombre real, y reemplázalo aquí.
+'    tecnica de campo" para ver el nombre real, y reemplazalo aqui.
 ' ---------------------------------------------------------------
 Dim grid, totalFilas, i
 Set grid = session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell")
@@ -140,7 +140,7 @@ Const COL_SOLPED   = "BANFN"   ' Solicitud de pedido (verificar)
 Const COL_CENTRO   = "WERKS"   ' Centro (verificar)
 Const COL_MATERIAL = "MATNR"   ' Material (verificar)
 Const COL_CONTRATO = "KONNR"   ' Contrato marco (verificar)
-Const COL_FECHALIB = "FRGDT"   ' Fecha de liberación (verificar)
+Const COL_FECHALIB = "FRGDT"   ' Fecha de liberacion (verificar)
 Const COL_MODIF    = "AEDAT"   ' Modificado el (verificar)
 
 Dim tabla()
@@ -155,7 +155,7 @@ For i = 0 To totalFilas - 1
 Next
 
 ' ---------------------------------------------------------------
-' 5) *** LÓGICA NUEVA *** -- 4to filtro: antigüedad <= 3 días
+' 5) *** LOGICA NUEVA *** -- 4to filtro: antiguedad <= 3 dias
 '    (esto era el paso manual que pediste automatizar)
 ' ---------------------------------------------------------------
 Dim hoy, listaFinal(), totalCandidatas, exclDias
@@ -195,14 +195,14 @@ For i = 0 To totalFilas - 1
 Next
 
 If totalCandidatas = 0 Then
-    MsgBox "No quedó ninguna Solped candidata tras el filtro de antigüedad (3 días)." & vbCrLf & _
+    MsgBox "No quedo ninguna Solped candidata tras el filtro de antiguedad (3 dias)." & vbCrLf & _
            "Filas que pasaron los 3 filtros de SAP: " & totalFilas & vbCrLf & _
-           "Excluidas por antigüedad: " & exclDias, vbExclamation, "ME59N Automático"
+           "Excluidas por antiguedad: " & exclDias, vbExclamation, "ME59N Automatico"
     WScript.Quit
 End If
 
 ' ---------------------------------------------------------------
-' 6) *** LÓGICA NUEVA *** -- Copiar la lista final al portapapeles
+' 6) *** LOGICA NUEVA *** -- Copiar la lista final al portapapeles
 ' ---------------------------------------------------------------
 Dim listaTexto, objIE, ta
 listaTexto = ""
@@ -219,8 +219,8 @@ objIE.execCommand "Copy"
 
 Dim respuesta
 respuesta = MsgBox(totalCandidatas & " Solpeds candidatas copiadas al portapapeles." & vbCrLf & _
-       "(de " & totalFilas & " que pasaron los 3 filtros de SAP; " & exclDias & " se excluyeron por pasar los 3 días)" & vbCrLf & vbCrLf & _
-       "¿Continuar y abrir ME59N para pegarlas y ejecutar?", vbYesNo + vbQuestion, "ME59N Automático")
+       "(de " & totalFilas & " que pasaron los 3 filtros de SAP; " & exclDias & " se excluyeron por pasar los 3 dias)" & vbCrLf & vbCrLf & _
+       "Continuar y abrir ME59N para pegarlas y ejecutar?", vbYesNo + vbQuestion, "ME59N Automatico")
 
 If respuesta = vbNo Then
     WScript.Quit
@@ -244,19 +244,19 @@ session.findById("wnd[1]/tbar[0]/btn[24]").press
 session.findById("wnd[1]/tbar[0]/btn[8]").press
 
 ' ---------------------------------------------------------------
-' 8) *** LÓGICA NUEVA *** -- Ejecutar (este era el paso que dijiste
-'    que faltaba grabar). Uso el mismo patrón que tu ME5A (btn[8] de
-'    la barra de aplicación) -- verifícalo la primera vez antes de
-'    automatizarlo sin supervisión.
+' 8) *** LOGICA NUEVA *** -- Ejecutar (este era el paso que dijiste
+'    que faltaba grabar). Uso el mismo patron que tu ME5A (btn[8] de
+'    la barra de aplicacion) -- verificalo la primera vez antes de
+'    automatizarlo sin supervision.
 ' ---------------------------------------------------------------
 session.findById("wnd[0]/tbar[1]/btn[8]").press
 
-MsgBox "Se ejecutó ME59N con " & totalCandidatas & " Solpeds candidatas." & vbCrLf & _
-       "Revisa el log de resultado en pantalla (los íconos 🔴 son las que fallaron).", _
-       vbInformation, "ME59N Automático"
+MsgBox "Se ejecuto ME59N con " & totalCandidatas & " Solpeds candidatas." & vbCrLf & _
+       "Revisa el log de resultado en pantalla (los iconos [ROJO] son las que fallaron).", _
+       vbInformation, "ME59N Automatico"
 
 ' =====================================================================
-' Función auxiliar *** LÓGICA NUEVA *** -- interpreta fechas SAP típicas
+' Funcion auxiliar *** LOGICA NUEVA *** -- interpreta fechas SAP tipicas
 ' (dd.mm.yyyy o dd/mm/yyyy). Ajusta si tu layout las muestra distinto.
 ' =====================================================================
 Function ParseFechaSAP(valor)
@@ -277,10 +277,10 @@ Function ParseFechaSAP(valor)
 End Function
 
 ' =====================================================================
-' PENDIENTE (no incluido todavía): leer y clasificar el LOG de errores
-' que aparece después del paso 8. No tengo los IDs de esa pantalla
+' PENDIENTE (no incluido todavia): leer y clasificar el LOG de errores
+' que aparece despues del paso 8. No tengo los IDs de esa pantalla
 ' (solo vi una captura, no un script grabado). Para completarlo:
 ' abre el Scripting Recorder de SAP, entra a esa pantalla de log,
-' expande/lee un par de filas, guarda el .vbs grabado y pásamelo -- lo
+' expande/lee un par de filas, guarda el .vbs grabado y pasamelo -- lo
 ' agrego a este mismo archivo como el paso 9.
 ' =====================================================================
