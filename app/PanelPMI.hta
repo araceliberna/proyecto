@@ -1,0 +1,365 @@
+<html>
+<head>
+<title>Panel PMI - Automatizacion SAP (ME59N)</title>
+<HTA:APPLICATION
+    ID="oPanelPMI"
+    APPLICATIONNAME="Panel PMI"
+    BORDER="thick"
+    CAPTION="yes"
+    SHOWINTASKBAR="yes"
+    SINGLEINSTANCE="yes"
+    WINDOWSTATE="normal"
+    SCROLL="yes"
+/>
+<style>
+    body { background:#0f1923; color:#e0e0e0; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; margin:0; padding:20px; }
+    h1 { color:#4fc3f7; font-size:18px; margin-bottom:4px; }
+    p.sub { color:#78909c; font-size:12px; margin-top:0; margin-bottom:16px; }
+    .card { background:#1a2733; border:1px solid #2a4a5e; border-radius:8px; padding:16px; margin-bottom:16px; }
+    .btn { background:#4fc3f7; color:#0f1923; border:none; padding:10px 18px; border-radius:6px;
+           cursor:pointer; font-size:13px; font-weight:bold; }
+    .btn:hover { background:#81d4fa; }
+    #log { background:#0f1923; border:1px solid #2a4a5e; border-radius:6px; padding:10px;
+           height:320px; overflow-y:auto; font-family:Consolas,monospace; font-size:12px; }
+    #log div { padding:2px 0; border-bottom:1px solid #1e2d38; }
+    .warn { color:#ff9800; font-size:11px; line-height:1.5; }
+</style>
+</head>
+<body>
+
+<h1>Panel PMI - Automatizacion SAP (ME59N)</h1>
+<p class="sub">Boton real que corre el script completo (ME5A + 3 filtros + antiguedad + ME59N) contra tu sesion de SAP ya abierta.</p>
+
+<div class="card">
+    <p class="warn">
+        Requisitos antes de hacer clic: SAP Logon abierto, con la sesion ya conectada y parada en
+        cualquier pantalla (el boton entra solo a ME5A). Scripting habilitado, igual que para tus
+        .vbs actuales.<br><br>
+        Partes sin verificar contra SAP real (revisa el log de abajo la primera vez, no lo dejes
+        corriendo solo): los nombres de columna tecnica al leer la tabla (BANFN/WERKS/MATNR/KONNR/
+        FRGDT/AEDAT), y el boton final de "Ejecutar".
+    </p>
+    <button class="btn" onclick="EjecutarME59N">Generar candidatas y ejecutar en SAP</button>
+</div>
+
+<div class="card">
+    <div id="log"></div>
+</div>
+
+<script language="VBScript">
+Option Explicit
+
+Dim app, connection, session
+
+Sub Log(msg)
+    Dim d
+    Set d = document.getElementById("log")
+    d.innerHTML = d.innerHTML & "<div>" & msg & "</div>"
+    d.scrollTop = d.scrollHeight
+End Sub
+
+Sub EjecutarME59N()
+    Dim app, connection, session
+    Dim SapGuiAuto
+
+    ' ---------------------------------------------------------------
+    ' 0) Conectarse a la sesion de SAP ya abierta *** TAL CUAL LO GRABASTE ***
+    ' ---------------------------------------------------------------
+    Log "Conectando con la sesion de SAP abierta..."
+    If Not IsObject(app) Then
+        Set SapGuiAuto = GetObject("SAPGUISERVER")
+        Set app = SapGuiAuto.GetScriptingEngine
+    End If
+    If Not IsObject(connection) Then
+        Set connection = app.Children(0)
+    End If
+    If Not IsObject(session) Then
+        Set session = connection.Children(0)
+    End If
+    session.findById("wnd[0]").resizeWorkingPane 124, 16, False
+
+    ' ---------------------------------------------------------------
+    ' *** LOGICA NUEVA *** -- Entrar a ME5A explicitamente.
+    ' Esto faltaba: tu script original asumia que ya estabas parada
+    ' dentro de ME5A cuando lo corrias a mano. Como este script encadena
+    ' todo desde cero, hay que navegar primero.
+    ' ---------------------------------------------------------------
+    session.findById("wnd[0]/tbar[0]/okcd").text = "/nME5A"
+    session.findById("wnd[0]").sendVKey 0
+
+    ' ---------------------------------------------------------------
+    Log "Abriendo ME5A y aplicando filtros (Grupo compras, Centro, Estado)..."
+    ' 1) ME5A -- filtros de seleccion *** TAL CUAL LO GRABASTE ***
+    '    (EKGRP=005, Centro=10*/15*/16*, Estado=N)
+    ' ---------------------------------------------------------------
+    session.findById("wnd[0]/usr/btn%_BA_EKGRP_%_APP_%-VALU_PUSH").press
+    session.findById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,0]").text = "005"
+    session.findById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,0]").caretPosition = 3
+    session.findById("wnd[1]/tbar[0]/btn[8]").press
+
+    session.findById("wnd[0]/usr/btn%_S_WERKS_%_APP_%-VALU_PUSH").press
+    session.findById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,0]").text = "10*"
+    session.findById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").text = "15*"
+    session.findById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,2]").text = "16*"
+    session.findById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,2]").setFocus
+    session.findById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,2]").caretPosition = 3
+    session.findById("wnd[1]/tbar[0]/btn[8]").press
+
+    session.findById("wnd[0]/usr/ctxtS_STATU-LOW").text = "N"
+    session.findById("wnd[0]/usr/ctxtS_STATU-LOW").setFocus
+    session.findById("wnd[0]/usr/ctxtS_STATU-LOW").caretPosition = 1
+    session.findById("wnd[0]/tbar[1]/btn[8]").press
+
+    ' ---------------------------------------------------------------
+    Log "Aplicando layout guardado..."
+    ' 1b) Elegir el layout guardado (fila 17) *** TAL CUAL LO GRABASTE ***
+    '     Esto se me habia quedado fuera -- sin este layout, columnas como
+    '     DISPO no existen en la grilla por defecto y el filtro de abajo
+    '     falla con "El parametro no es correcto".
+    ' ---------------------------------------------------------------
+    session.findById("wnd[0]/tbar[1]/btn[33]").press
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_LAYOUT_CHOOSE:0500/cntlD500_CONTAINER/shellcont/shell").currentCellRow = 17
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_LAYOUT_CHOOSE:0500/cntlD500_CONTAINER/shellcont/shell").firstVisibleRow = 14
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_LAYOUT_CHOOSE:0500/cntlD500_CONTAINER/shellcont/shell").selectedRows = "17"
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_LAYOUT_CHOOSE:0500/cntlD500_CONTAINER/shellcont/shell").clickCurrentCell
+
+    ' ---------------------------------------------------------------
+    Log "Aplicando filtro: excluir borrado/concluida..."
+    ' 2) Filtro ALV: excluir Indicador de borrado / Concluida
+    '    *** TAL CUAL LO GRABASTE ***
+    '    OJO: el paso "sendVKey 4" dentro de wnd[3] es tu grabacion literal;
+    '    no capturo explicitamente que valor tecleaste ahi (probablemente
+    '    usaste F4/ayuda de valores y elegiste algo de una lista). Si al
+    '    correr esto ves que NO quedo excluido correctamente, es la parte a
+    '    re-grabar con mas detalle (abre esa ventana paso a paso, sin
+    '    saltos, y vuelve a grabar solo ese tramo).
+    ' ---------------------------------------------------------------
+    session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell").firstVisibleColumn = "DISPO"
+    session.findById("wnd[0]/tbar[1]/btn[29]").press
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/cntlCONTAINER1_FILT/shellcont/shell").firstVisibleRow = 108
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/cntlCONTAINER1_FILT/shellcont/shell").pressToolbarButton "&FIND"
+    session.findById("wnd[2]/usr/txtGS_SEARCH-VALUE").text = "indicad"
+    session.findById("wnd[2]/usr/txtGS_SEARCH-VALUE").caretPosition = 7
+    session.findById("wnd[2]").sendVKey 0
+    session.findById("wnd[2]").close
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/btnAPP_WL_SING").press
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/cntlCONTAINER1_FILT/shellcont/shell").selectedRows = "30"
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/btnAPP_WL_SING").press
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/cntlCONTAINER1_FILT/shellcont/shell").firstVisibleRow = 0
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/btn600_BUTTON").press
+    session.findById("wnd[2]/usr/ssub%_SUBSCREEN_FREESEL:SAPLSSEL:1105/btn%_%%DYN001_%_APP_%-VALU_PUSH").press
+    session.findById("wnd[3]/usr/tabsTAB_STRIP/tabpNOSV").select
+    session.findById("wnd[3]").sendVKey 4
+    session.findById("wnd[3]/tbar[0]/btn[8]").press
+    session.findById("wnd[2]/usr/ssub%_SUBSCREEN_FREESEL:SAPLSSEL:1105/btn%_%%DYN002_%_APP_%-VALU_PUSH").press
+    session.findById("wnd[3]/usr/tabsTAB_STRIP/tabpNOSV").select
+    session.findById("wnd[3]").sendVKey 4
+    session.findById("wnd[3]/tbar[0]/btn[8]").press
+    session.findById("wnd[2]/tbar[0]/btn[0]").press
+
+    ' ---------------------------------------------------------------
+    Log "Aplicando filtro: excluir sin contrato marco..."
+    ' 3) Filtro ALV: excluir Contrato marco vacio *** TAL CUAL LO GRABASTE ***
+    ' ---------------------------------------------------------------
+    session.findById("wnd[0]/tbar[1]/btn[29]").press
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/cntlCONTAINER1_FILT/shellcont/shell").currentCellRow = 7
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/cntlCONTAINER1_FILT/shellcont/shell").selectedRows = "7"
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/btnAPP_WL_SING").press
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/cntlCONTAINER2_FILT/shellcont/shell").currentCellRow = 2
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/cntlCONTAINER2_FILT/shellcont/shell").selectedRows = "2"
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/cntlCONTAINER2_FILT/shellcont/shell").doubleClickCurrentCell
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/cntlCONTAINER1_FILT/shellcont/shell").selectedRows = "7"
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/cntlCONTAINER1_FILT/shellcont/shell").doubleClickCurrentCell
+    session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_FILTER_CRITERIA:0600/btn600_BUTTON").press
+    session.findById("wnd[2]/usr/ssub%_SUBSCREEN_FREESEL:SAPLSSEL:1105/btn%_%%DYN001_%_APP_%-VALU_PUSH").press
+    session.findById("wnd[3]/usr/tabsTAB_STRIP/tabpNOSV").select
+    session.findById("wnd[3]/usr/tabsTAB_STRIP/tabpNOSV/ssubSCREEN_HEADER:SAPLALDB:3030/tblSAPLALDBSINGLE_E/btnRSCSEL_255-SOP_E[0,0]").setFocus
+    session.findById("wnd[3]/usr/tabsTAB_STRIP/tabpNOSV/ssubSCREEN_HEADER:SAPLALDB:3030/tblSAPLALDBSINGLE_E/btnRSCSEL_255-SOP_E[0,0]").press
+    session.findById("wnd[4]/usr/cntlOPTION_CONTAINER/shellcont/shell").doubleClickCurrentCell
+    session.findById("wnd[3]/tbar[0]/btn[8]").press
+    session.findById("wnd[2]/tbar[0]/btn[0]").press
+    session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell").firstVisibleRow = 107
+    session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell").firstVisibleRow = 0
+
+    ' ---------------------------------------------------------------
+    Log "Leyendo tabla filtrada de SAP..."
+    ' 4) *** LOGICA NUEVA *** -- Traer la tabla filtrada a memoria
+    '    (aqui ya deberian estar aplicados los 3 filtros de arriba)
+    '
+    '    OJO: los nombres de columna tecnica (BANFN, WERKS, MATNR, KONNR,
+    '    FRGDT, AEDAT) son mi mejor suposicion segun los campos estandar de
+    '    SAP para Solped/EBAN -- pero NO los he verificado contra tu layout
+    '    real. Si al correr esto da error "columna no encontrada", clic
+    '    derecho sobre el encabezado de esa columna en el grid > "Ayuda
+    '    tecnica de campo" para ver el nombre real, y reemplazalo aqui.
+    ' ---------------------------------------------------------------
+    Dim grid, totalFilas, i
+    Set grid = session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell")
+    totalFilas = grid.RowCount
+
+    Const COL_SOLPED   = "BANFN"   ' Solicitud de pedido (verificar)
+    Const COL_CENTRO   = "WERKS"   ' Centro (verificar)
+    Const COL_MATERIAL = "MATNR"   ' Material (verificar)
+    Const COL_CONTRATO = "KONNR"   ' Contrato marco (verificar)
+    Const COL_FECHALIB = "FRGDT"   ' Fecha de liberacion (verificar)
+    Const COL_MODIF    = "AEDAT"   ' Modificado el (verificar)
+
+    Dim tabla()
+    ReDim tabla(totalFilas - 1, 5)
+    For i = 0 To totalFilas - 1
+        tabla(i, 0) = grid.GetCellValue(i, COL_SOLPED)
+        tabla(i, 1) = grid.GetCellValue(i, COL_CENTRO)
+        tabla(i, 2) = grid.GetCellValue(i, COL_MATERIAL)
+        tabla(i, 3) = grid.GetCellValue(i, COL_CONTRATO)
+        tabla(i, 4) = grid.GetCellValue(i, COL_FECHALIB)
+        tabla(i, 5) = grid.GetCellValue(i, COL_MODIF)
+    Next
+
+    ' ---------------------------------------------------------------
+    Log "Calculando filtro de antiguedad (3 dias)..."
+    ' 5) *** LOGICA NUEVA *** -- 4to filtro: antiguedad <= 3 dias
+    '    (esto era el paso manual que pediste automatizar)
+    ' ---------------------------------------------------------------
+    Dim hoy, listaFinal(), totalCandidatas, exclDias
+    Dim fLib, fMod, fRef, dias
+
+    hoy = Date
+    ReDim listaFinal(totalFilas)
+    totalCandidatas = 0
+    exclDias = 0
+
+    For i = 0 To totalFilas - 1
+        fLib = ParseFechaSAP(tabla(i, 4))
+        fMod = ParseFechaSAP(tabla(i, 5))
+
+        If IsDate(fLib) And IsDate(fMod) Then
+            If CDate(fLib) > CDate(fMod) Then fRef = fLib Else fRef = fMod
+        ElseIf IsDate(fLib) Then
+            fRef = fLib
+        ElseIf IsDate(fMod) Then
+            fRef = fMod
+        Else
+            fRef = Empty
+        End If
+
+        If IsDate(fRef) Then
+            dias = DateDiff("d", CDate(fRef), hoy)
+            If dias <= 3 Then
+                listaFinal(totalCandidatas) = tabla(i, 0)
+                totalCandidatas = totalCandidatas + 1
+            Else
+                exclDias = exclDias + 1
+            End If
+        Else
+            listaFinal(totalCandidatas) = tabla(i, 0)
+            totalCandidatas = totalCandidatas + 1
+        End If
+    Next
+
+    If totalCandidatas = 0 Then
+        MsgBox "No quedo ninguna Solped candidata tras el filtro de antiguedad (3 dias)." & vbCrLf & _
+               "Filas que pasaron los 3 filtros de SAP: " & totalFilas & vbCrLf & _
+               "Excluidas por antiguedad: " & exclDias, vbExclamation, "ME59N Automatico"
+        Exit Sub
+    End If
+
+    ' ---------------------------------------------------------------
+    Log totalCandidatas & " candidatas finales (de " & totalFilas & " filtradas por SAP, " & exclDias & " excluidas por antiguedad)."
+    ' 6) *** LOGICA NUEVA *** -- Copiar la lista final al portapapeles
+    ' ---------------------------------------------------------------
+    Dim listaTexto, objIE, ta
+    listaTexto = ""
+    For i = 0 To totalCandidatas - 1
+        listaTexto = listaTexto & listaFinal(i) & vbCrLf
+    Next
+
+    Set objIE = CreateObject("htmlfile")
+    Set ta = objIE.createElement("textarea")
+    objIE.appendChild ta
+    ta.innerText = listaTexto
+    ta.Select
+    objIE.execCommand "Copy"
+
+    Dim respuesta
+    respuesta = MsgBox(totalCandidatas & " Solpeds candidatas copiadas al portapapeles." & vbCrLf & _
+           "(de " & totalFilas & " que pasaron los 3 filtros de SAP; " & exclDias & " se excluyeron por pasar los 3 dias)" & vbCrLf & vbCrLf & _
+           "Continuar y abrir ME59N para pegarlas y ejecutar?", vbYesNo + vbQuestion, "ME59N Automatico")
+
+    If respuesta = vbNo Then
+        Exit Sub
+    End If
+
+    ' ---------------------------------------------------------------
+    ' *** LOGICA NUEVA *** -- Entrar a ME59N explicitamente (mismo motivo
+    ' que con ME5A: hay que navegar, no asumir que ya estas ahi).
+    ' ---------------------------------------------------------------
+    session.findById("wnd[0]/tbar[0]/okcd").text = "/nME59N"
+    session.findById("wnd[0]").sendVKey 0
+
+    ' ---------------------------------------------------------------
+    Log "Abriendo ME59N y pegando la lista de candidatas..."
+    ' 7) ME59N -- filtros y pegado *** TAL CUAL LO GRABASTE ***
+    ' ---------------------------------------------------------------
+    session.findById("wnd[0]/usr/btn%_S_EKGRP_%_APP_%-VALU_PUSH").press
+    session.findById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,0]").text = "005"
+    session.findById("wnd[1]/tbar[0]/btn[8]").press
+
+    session.findById("wnd[0]/usr/btn%_S_WERKS_%_APP_%-VALU_PUSH").press
+    session.findById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,0]").text = "10*"
+    session.findById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").text = "15*"
+    session.findById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,2]").text = "16*"
+    session.findById("wnd[1]/tbar[0]/btn[8]").press
+
+    session.findById("wnd[0]/usr/btn%_S_BANFN_%_APP_%-VALU_PUSH").press
+    session.findById("wnd[1]/tbar[0]/btn[24]").press
+    session.findById("wnd[1]/tbar[0]/btn[8]").press
+
+    ' ---------------------------------------------------------------
+    Log "Ejecutando la conversion masiva (F8)..."
+    ' 8) *** LOGICA NUEVA *** -- Ejecutar (este era el paso que dijiste
+    '    que faltaba grabar). Uso el mismo patron que tu ME5A (btn[8] de
+    '    la barra de aplicacion) -- verificalo la primera vez antes de
+    '    automatizarlo sin supervision.
+    ' ---------------------------------------------------------------
+    session.findById("wnd[0]/tbar[1]/btn[8]").press
+
+    MsgBox "Se ejecuto ME59N con " & totalCandidatas & " Solpeds candidatas." & vbCrLf & _
+           "Revisa el log de resultado en pantalla (los iconos [ROJO] son las que fallaron).", _
+           vbInformation, "ME59N Automatico"
+
+End Sub
+
+' =====================================================================
+' Funcion auxiliar *** LOGICA NUEVA *** -- interpreta fechas SAP tipicas
+' (dd.mm.yyyy o dd/mm/yyyy). Ajusta si tu layout las muestra distinto.
+' =====================================================================
+Function ParseFechaSAP(valor)
+    Dim s
+    s = Trim(CStr(valor))
+    If s = "" Then
+        ParseFechaSAP = Empty
+        Exit Function
+    End If
+    s = Replace(s, ".", "/")
+    On Error Resume Next
+    ParseFechaSAP = CDate(s)
+    If Err.Number <> 0 Then
+        ParseFechaSAP = Empty
+        Err.Clear
+    End If
+    On Error Goto 0
+End Function
+
+' =====================================================================
+' PENDIENTE (no incluido todavia): leer y clasificar el LOG de errores
+' que aparece despues del paso 8. No tengo los IDs de esa pantalla
+' (solo vi una captura, no un script grabado). Para completarlo:
+' abre el Scripting Recorder de SAP, entra a esa pantalla de log,
+' expande/lee un par de filas, guarda el .vbs grabado y pasamelo -- lo
+' agrego a este mismo archivo como el paso 9.
+' =====================================================================
+
+</script>
+
+</body>
+</html>
