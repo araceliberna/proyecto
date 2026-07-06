@@ -74,6 +74,18 @@ session.findById("wnd[0]/usr/ctxtS_STATU-LOW").caretPosition = 1
 session.findById("wnd[0]/tbar[1]/btn[8]").press
 
 ' ---------------------------------------------------------------
+' 1b) Elegir el layout guardado (fila 17) *** TAL CUAL LO GRABASTE ***
+'     Esto se me habia quedado fuera -- sin este layout, columnas como
+'     DISPO no existen en la grilla por defecto y el filtro de abajo
+'     falla con "El parametro no es correcto".
+' ---------------------------------------------------------------
+session.findById("wnd[0]/tbar[1]/btn[33]").press
+session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_LAYOUT_CHOOSE:0500/cntlD500_CONTAINER/shellcont/shell").currentCellRow = 17
+session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_LAYOUT_CHOOSE:0500/cntlD500_CONTAINER/shellcont/shell").firstVisibleRow = 14
+session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_LAYOUT_CHOOSE:0500/cntlD500_CONTAINER/shellcont/shell").selectedRows = "17"
+session.findById("wnd[1]/usr/subSUB_CONFIGURATION:SAPLSALV_CUL_LAYOUT_CHOOSE:0500/cntlD500_CONTAINER/shellcont/shell").clickCurrentCell
+
+' ---------------------------------------------------------------
 ' 2) Filtro ALV: excluir Indicador de borrado / Concluida
 '    *** TAL CUAL LO GRABASTE ***
 '    OJO: el paso "sendVKey 4" dentro de wnd[3] es tu grabacion literal;
