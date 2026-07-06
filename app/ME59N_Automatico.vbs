@@ -41,6 +41,14 @@ If IsObject(WScript) Then
 End If
 
 session.findById("wnd[0]").resizeWorkingPane 124, 16, False
+
+' ---------------------------------------------------------------
+' *** LOGICA NUEVA *** -- Entrar a ME5A explicitamente.
+' Esto faltaba: tu script original asumia que ya estabas parada
+' dentro de ME5A cuando lo corrias a mano. Como este script encadena
+' todo desde cero, hay que navegar primero.
+' ---------------------------------------------------------------
+session.findById("wnd[0]/tbar[0]/okcd").text = "/nME5A"
 session.findById("wnd[0]").sendVKey 0
 
 ' ---------------------------------------------------------------
@@ -225,6 +233,13 @@ respuesta = MsgBox(totalCandidatas & " Solpeds candidatas copiadas al portapapel
 If respuesta = vbNo Then
     WScript.Quit
 End If
+
+' ---------------------------------------------------------------
+' *** LOGICA NUEVA *** -- Entrar a ME59N explicitamente (mismo motivo
+' que con ME5A: hay que navegar, no asumir que ya estas ahi).
+' ---------------------------------------------------------------
+session.findById("wnd[0]/tbar[0]/okcd").text = "/nME59N"
+session.findById("wnd[0]").sendVKey 0
 
 ' ---------------------------------------------------------------
 ' 7) ME59N -- filtros y pegado *** TAL CUAL LO GRABASTE ***
