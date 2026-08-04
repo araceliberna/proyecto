@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel PMI — Herramienta local (funcional)</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; }
+    body { background:#0f1923; color:#e0e0e0; display:flex; min-height:100vh; }
+
+    .sidebar { width:230px; background:#15232e; border-right:1px solid #2a4a5e; padding:20px 0; display:flex; flex-direction:column; flex-shrink:0; position:sticky; top:0; height:100vh; }
+    .sidebar .logo { padding:0 20px 20px 20px; border-bottom:1px solid #2a4a5e; margin-bottom:10px; }
+    .sidebar .logo h1 { font-size:15px; color:#4fc3f7; }
+    .sidebar .logo span { font-size:11px; color:#78909c; }
+    .nav-btn { display:flex; align-items:center; gap:10px; padding:12px 20px; background:none; border:none; color:#b0bec5; text-align:left; cursor:pointer; font-size:13px; border-left:3px solid transparent; transition:.15s; width:100%; }
+    .nav-btn:hover { background:rgba(79,195,247,0.08); color:#e0e0e0; }
+    .nav-btn.active { background:rgba(79,195,247,0.12); border-left:3px solid #4fc3f7; color:#4fc3f7; font-weight:bold; }
+
+    .main { flex:1; overflow-y:auto; padding:24px 30px; max-width:1200px; }
+    .screen { display:none; }
+    .screen.active { display:block; }
+
+    .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+    .topbar h2 { color:#4fc3f7; font-size:20px; }
+    .subtitle { color:#78909c; font-size:13px; margin-bottom:18px; }
+
+    .card { background:#1a2733; border:1px solid #2a4a5e; border-radius:10px; padding:18px; margin-bottom:16px; }
+    .card h3 { color:#4fc3f7; font-size:14px; margin-bottom:10px; }
+    .card p.hint { color:#78909c; font-size:12px; margin-bottom:10px; line-height:1.5; }
+
+    .grid { display:grid; gap:16px; }
+    .grid-3 { grid-template-columns:repeat(3,1fr); }
+    .grid-4 { grid-template-columns:repeat(4,1fr); }
+    .grid-2 { grid-template-columns:repeat(2,1fr); }
+    @media (max-width:900px) { .grid-3, .grid-4, .grid-2 { grid-template-columns:1fr; } }
+
+    .kpi { text-align:center; padding:16px; border-radius:8px; border:2px solid #2a4a5e; }
+    .kpi .num { font-size:32px; font-weight:bold; display:block; }
+    .kpi .lbl { font-size:12px; color:#90a4ae; margin-top:4px; }
+    .kpi.rojo { border-color:#f44336; } .kpi.rojo .num { color:#f44336; }
+    .kpi.naranja { border-color:#ff9800; } .kpi.naranja .num { color:#ff9800; }
+    .kpi.verde { border-color:#4caf50; } .kpi.verde .num { color:#4caf50; }
+    .kpi.azul { border-color:#4fc3f7; } .kpi.azul .num { color:#4fc3f7; }
+
+    table { width:100%; border-collapse:collapse; font-size:12.5px; }
+    thead th { background:#15232e; color:#78909c; padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.5px; border-bottom:2px solid #2a4a5e; position:sticky; top:0; }
+    tbody td { padding:8px 10px; border-bottom:1px solid #1e2d38; }
+    tbody tr:hover { background:rgba(79,195,247,0.05); }
+    .table-wrap { max-height:420px; overflow:auto; border:1px solid #2a4a5e; border-radius:8px; }
+
+    .badge { padding:3px 9px; border-radius:4px; font-size:11px; font-weight:bold; display:inline-block; border:1px solid; }
+    .badge.rojo { background:rgba(244,67,54,.2); color:#f44336; border-color:#f44336; }
+    .badge.naranja { background:rgba(255,152,0,.2); color:#ff9800; border-color:#ff9800; }
+    .badge.verde { background:rgba(76,175,80,.2); color:#4caf50; border-color:#4caf50; }
+    .badge.azul { background:rgba(79,195,247,.2); color:#4fc3f7; border-color:#4fc3f7; }
+    .badge.gris { background:rgba(120,144,156,.2); color:#90a4ae; border-color:#90a4ae; }
+
+    .btn { background:#4fc3f7; color:#0f1923; border:none; padding:9px 16px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold; }
+    .btn:hover { background:#81d4fa; }
+    .btn.secundario { background:#2a4a5e; color:#e0e0e0; }
+    .btn.pequeno { padding:5px 10px; font-size:11px; }
+    .btn:disabled { opacity:.4; cursor:not-allowed; }
+
+    input, select, textarea { background:#0f1923; border:1px solid #2a4a5e; color:#e0e0e0; padding:8px 10px; border-radius:6px; font-size:13px; width:100%; font-family:inherit; }
+    textarea { font-family:'Consolas',monospace; font-size:11.5px; resize:vertical; }
+    label.f { display:block; font-size:12px; color:#90a4ae; margin-bottom:4px; margin-top:10px; }
+
+    .toast { position:fixed; bottom:24px; right:24px; background:#1a2733; border:1px solid #4fc3f7; padding:14px 18px; border-radius:8px; max-width:380px; box-shadow:0 4px 20px rgba(0,0,0,.4); display:none; font-size:13px; z-index:999; }
+    .toast.show { display:block; animation:fadein .2s; }
+    .toast.err { border-color:#f44336; }
+    .toast .t-title { color:#4fc3f7; font-weight:bold; margin-bottom:4px; }
+    .toast.err .t-title { color:#f44336; }
+    @keyframes fadein { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+
+    .muted { color:#78909c; font-size:12px; }
+    .row-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    code { background:#0f1923; padding:1px 5px; border-radius:4px; font-size:11px; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo">
+        <h1>🧭 Panel PMI</h1>
+        <span>Herramienta local — funciona de verdad</span>
+    </div>
+    <button class="nav-btn active" data-screen="inicio">🏠 Inicio</button>
+    <button class="nav-btn" data-screen="solped">📝 Registrar Solped → OC Spot</button>
+    <button class="nav-btn" data-screen="me59n">⚙️ Candidatas ME59N</button>
+    <button class="nav-btn" data-screen="stock">🔍 Estado de Stock SS</button>
+    <button class="nav-btn" data-screen="contratos">📄 Contratos → ISA</button>
+    <button class="nav-btn" data-screen="estado">📋 Consultar estado</button>
+    <button class="nav-btn" data-screen="ayuda">❓ Cómo usarla</button>
+</div>
+
+<div class="main">
+
+    <!-- INICIO -->
+    <div class="screen active" id="screen-inicio">
+        <div class="topbar"><h2>Inicio</h2></div>
+        <p class="subtitle">Todo lo que registras aquí se guarda en este navegador (localStorage) — no se pierde al cerrar la pestaña, pero tampoco lo ve nadie más. Es un puente mientras se arma la versión real en Power Apps.</p>
+        <div class="grid grid-4" id="kpisInicio"></div>
+        <div class="card">
+            <h3>Accesos rápidos</h3>
+            <div class="grid grid-3">
+                <button class="btn" onclick="goScreen('solped')">📝 Nueva Solped → OC Spot</button>
+                <button class="btn" onclick="goScreen('me59n')">⚙️ Calcular candidatas ME59N</button>
+                <button class="btn secundario" onclick="goScreen('ayuda')">❓ Cómo usarla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SOLPED -->
+    <div class="screen" id="screen-solped">
+        <div class="topbar"><h2>Registrar requerimiento Solped → OC Spot</h2></div>
+        <p class="subtitle">Se guarda en este navegador y genera un correo listo para enviar al CoE de Compras (se abre tu cliente de correo con el mensaje ya redactado).</p>
+        <div class="card" style="max-width:560px;">
+            <label class="f">Correo del CoE de Compras (se guarda para la próxima vez)</label>
+            <input id="coeEmail" placeholder="isa@alicorp.com.pe">
+            <label class="f">Nº Solped *</label><input id="fSolped">
+            <label class="f">Material *</label><input id="fMaterial">
+            <label class="f">Cantidad</label><input id="fCantidad" type="number">
+            <label class="f">Centro de costo</label><input id="fCentro">
+            <label class="f">Comentarios</label><textarea id="fComentarios" rows="3" style="font-family:inherit;font-size:13px;"></textarea>
+            <div class="row-actions">
+                <button class="btn" onclick="registrarSolped()">Guardar y redactar correo a CoE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ME59N -->
+    <div class="screen" id="screen-me59n">
+        <div class="topbar"><h2>Candidatas para ME59N</h2></div>
+        <p class="subtitle">
+            Pega aquí el resultado de tu extracción de <code>ME5A</code> (selecciona toda la tabla en Excel, cópiala con Ctrl+C, y pégala en el cuadro con Ctrl+V — incluye la fila de encabezados). Se aplican los 4 filtros ya confirmados: <code>Indicador de borrado ≠ true</code>, <code>Concluida ≠ X</code>, <code>Contrato marco</code> no vacío, y antigüedad ≤ 3 días (el mayor entre <code>Fecha de liberación</code> y <code>Modificado el</code>).
+        </p>
+        <div class="card">
+            <textarea id="me5aInput" rows="8" placeholder="Pega aquí (con encabezados) la tabla exportada de ME5A..."></textarea>
+            <div class="row-actions">
+                <button class="btn" onclick="procesarME5A()">Calcular candidatas</button>
+                <button class="btn secundario" onclick="document.getElementById('me5aInput').value=''">Limpiar</button>
+            </div>
+        </div>
+        <div class="card" id="me59nResultado" style="display:none;">
+            <div class="grid grid-4" style="margin-bottom:14px;">
+                <div class="kpi azul"><span class="num" id="kpiTotalFilas">0</span><span class="lbl">Filas leídas</span></div>
+                <div class="kpi rojo"><span class="num" id="kpiExclBorrado">0</span><span class="lbl">Excluidas: borrado/concluida</span></div>
+                <div class="kpi naranja"><span class="num" id="kpiExclContrato">0</span><span class="lbl">Excluidas: sin contrato marco</span></div>
+                <div class="kpi naranja"><span class="num" id="kpiExclDias">0</span><span class="lbl">Excluidas: &gt;3 días</span></div>
+            </div>
+            <div class="grid grid-2" style="margin-bottom:14px;">
+                <div class="kpi verde"><span class="num" id="kpiCandidatas">0</span><span class="lbl">✅ Candidatas finales para ME59N</span></div>
+                <div></div>
+            </div>
+            <div class="row-actions">
+                <button class="btn" onclick="copiarSolpeds()">📋 Copiar lista de Solpeds (para pegar en ME59N)</button>
+                <button class="btn secundario" onclick="descargarCSV('candidatasME59N.csv', tablaCandidatas)">⬇ Descargar CSV</button>
+            </div>
+            <div class="table-wrap" style="margin-top:12px;">
+                <table>
+                    <thead><tr><th>Solicitud de pedido</th><th>Centro</th><th>Material</th><th>Contrato marco</th><th>Fecha ref.</th><th>Días</th></tr></thead>
+                    <tbody id="me59nTabla"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- STOCK -->
+    <div class="screen" id="screen-stock">
+        <div class="topbar"><h2>Estado de Stock SS (quiebres)</h2></div>
+        <p class="subtitle">
+            Pega aquí la hoja <code>BD</code> del Reporte SS (con encabezados). Necesita al menos las columnas
+            <code>Status sobrestock</code>, <code>Stock actual</code>, <code>Stock seguridad</code>, <code>Centro</code>, <code>Material</code>.
+        </p>
+        <div class="card">
+            <textarea id="stockInput" rows="8" placeholder="Pega aquí la hoja BD del Reporte SS..."></textarea>
+            <div class="row-actions">
+                <button class="btn" onclick="procesarStock()">Calcular estado de stock</button>
+                <button class="btn secundario" onclick="document.getElementById('stockInput').value=''">Limpiar</button>
+            </div>
+        </div>
+        <div class="card" id="stockResultado" style="display:none;">
+            <div class="grid grid-4" style="margin-bottom:14px;">
+                <div class="kpi rojo"><span class="num" id="kpiQuiebre">0</span><span class="lbl">🔴 Quiebre</span></div>
+                <div class="kpi verde"><span class="num" id="kpiEnStock">0</span><span class="lbl">✅ En stock</span></div>
+                <div class="kpi naranja"><span class="num" id="kpiSobreStock">0</span><span class="lbl">🟠 Sobre stock</span></div>
+                <div class="kpi azul"><span class="num" id="kpiTotalStock">0</span><span class="lbl">Total procesado</span></div>
+            </div>
+            <div class="row-actions">
+                <button class="btn secundario" onclick="descargarCSV('estadoStockSS.csv', tablaStock)">⬇ Descargar CSV (todo)</button>
+            </div>
+            <div class="table-wrap" style="margin-top:12px;">
+                <table>
+                    <thead><tr><th>Estado</th><th>Centro</th><th>Material</th><th>Texto breve</th><th>Stock actual</th><th>Stock seguridad</th></tr></thead>
+                    <tbody id="stockTabla"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTRATOS -->
+    <div class="screen" id="screen-contratos">
+        <div class="topbar"><h2>Contratos → envío a ISA</h2></div>
+        <p class="subtitle">
+            Pega aquí la hoja <code>TOTAL CONTRATOS</code>. Se calcula qué contratos necesitan <b>ampliación</b> (columna <code>Por ampliar</code> = Sí, o si no está la columna, <code>SALDO CANTIDAD &lt; 0</code>) y se agrupa por contrato para ver <b>estabilización</b> (suma de <code>Valorizado posicion</code> vs. <code>Valorizado pendiente total</code>).
+        </p>
+        <div class="card">
+            <textarea id="contratosInput" rows="8" placeholder="Pega aquí la hoja TOTAL CONTRATOS..."></textarea>
+            <div class="row-actions">
+                <button class="btn" onclick="procesarContratos()">Calcular</button>
+                <button class="btn secundario" onclick="document.getElementById('contratosInput').value=''">Limpiar</button>
+            </div>
+        </div>
+        <div class="card" id="contratosResultado" style="display:none;">
+            <div class="grid grid-3" style="margin-bottom:14px;">
+                <div class="kpi naranja"><span class="num" id="kpiAmpliar">0</span><span class="lbl">Posiciones por ampliar</span></div>
+                <div class="kpi rojo"><span class="num" id="kpiEstabilizar">0</span><span class="lbl">Contratos a estabilizar</span></div>
+                <div class="kpi azul"><span class="num" id="kpiTotalContratos">0</span><span class="lbl">Total contratos distintos</span></div>
+            </div>
+            <h3 style="margin-top:6px;">Posiciones por ampliar</h3>
+            <div class="table-wrap" style="margin-bottom:14px;">
+                <table>
+                    <thead><tr><th>Contrato</th><th>Proveedor</th><th>Cantidad a ampliar</th><th>Valorizado a ampliar</th></tr></thead>
+                    <tbody id="contratosAmpliarTabla"></tbody>
+                </table>
+            </div>
+            <h3>Contratos a estabilizar (suma posición ≠ valor pendiente total)</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Contrato</th><th>Suma valorizado posición</th><th>Valorizado pendiente total</th><th>Diferencia</th></tr></thead>
+                    <tbody id="contratosEstabTabla"></tbody>
+                </table>
+            </div>
+            <div class="row-actions">
+                <button class="btn" onclick="redactarCorreoISA()">✉ Redactar correo a ISA con este resumen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ESTADO -->
+    <div class="screen" id="screen-estado">
+        <div class="topbar"><h2>Consultar estado — Solpeds registradas</h2></div>
+        <p class="subtitle">Esto es lo que has ido guardando desde la pantalla "Registrar Solped" en este navegador.</p>
+        <div class="card">
+            <div class="row-actions" style="margin-bottom:10px;">
+                <input id="buscarSolped" placeholder="Buscar por Nº Solped o material..." oninput="renderSolpeds()" style="max-width:320px;">
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Nº Solped</th><th>Material</th><th>Cantidad</th><th>Centro</th><th>Fecha registro</th><th>Estado</th><th></th></tr></thead>
+                    <tbody id="solpedsTabla"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- AYUDA -->
+    <div class="screen" id="screen-ayuda">
+        <div class="topbar"><h2>Cómo usar esta herramienta</h2></div>
+        <div class="card">
+            <h3>Qué es y qué no es</h3>
+            <p class="hint">
+                Esto corre 100% en tu navegador, sin servidor y sin conexión a SAP/Power Platform.
+                Los datos se guardan solo en este navegador (localStorage) — si cambias de PC o
+                borras el caché, se pierden. Es un puente para trabajar ya mismo mientras se
+                arma la versión real en Power Apps (ver <code>docs/guia-implementacion-powerapps.md</code>
+                en el repositorio).
+            </p>
+            <h3>Flujo recomendado</h3>
+            <p class="hint">
+                1. Corres tus scripts de SAP GUI Scripting como siempre (ME5A, Reporte SS, Contratos).<br>
+                2. Abres el Excel resultante, seleccionas la tabla completa (con encabezados) y la copias (Ctrl+C).<br>
+                3. Vienes a la pantalla correspondiente aquí (Candidatas ME59N / Estado de Stock / Contratos) y pegas (Ctrl+V) en el cuadro de texto.<br>
+                4. Revisas el resultado ya filtrado/calculado, y usas "Copiar lista" o "Descargar CSV" para llevarlo de vuelta a SAP (pegar en el campo de selección múltiple de <code>ME59N</code>) o a tu correo.
+            </p>
+            <h3>Notificaciones</h3>
+            <p class="hint">
+                Los botones de "correo" abren tu cliente de correo predeterminado (mailto:) con el
+                mensaje ya redactado — tú revisas y le das enviar. No se manda nada automáticamente
+                sin que tú lo confirmes.
+            </p>
+        </div>
+    </div>
+
+</div>
+
+<div class="toast" id="toast">
+    <div class="t-title" id="toast-title">Acción</div>
+    <div id="toast-body"></div>
+</div>
+
+<script>
+/* ---------- Navegación ---------- */
+document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => goScreen(btn.dataset.screen)));
+function goScreen(name) {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.screen === name));
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === 'screen-' + name));
+    if (name === 'estado') renderSolpeds();
+    if (name === 'inicio') renderKpisInicio();
+}
+
+function showToast(title, body, isErr) {
+    document.getElementById('toast-title').textContent = title;
+    document.getElementById('toast-body').textContent = body;
+    const t = document.getElementById('toast');
+    t.classList.toggle('err', !!isErr);
+    t.classList.add('show');
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(() => t.classList.remove('show'), 5000);
+}
+
+/* ---------- Utilidades de parseo (pegado desde Excel = TSV) ---------- */
+function parseTSV(text) {
+    const lines = text.replace(/\r/g, '').split('\n').filter(l => l.length > 0);
+    if (lines.length < 2) return { headers: [], rows: [] };
+    const headers = lines[0].split('\t').map(h => h.trim());
+    const rows = lines.slice(1).map(line => {
+        const cells = line.split('\t');
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = (cells[i] !== undefined ? cells[i].trim() : ''));
+        return obj;
+    });
+    return { headers, rows };
+}
+
+function findCol(headers, candidates) {
+    const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    const normHeaders = headers.map(norm);
+    for (const cand of candidates) {
+        const idx = normHeaders.indexOf(norm(cand));
+        if (idx !== -1) return headers[idx];
+    }
+    // partial match fallback
+    for (const cand of candidates) {
+        const nc = norm(cand);
+        const idx = normHeaders.findIndex(h => h.includes(nc) || nc.includes(h));
+        if (idx !== -1) return headers[idx];
+    }
+    return null;
+}
+
+function parseFecha(v) {
+    if (!v) return null;
+    v = String(v).trim();
+    if (!v) return null;
+    // Excel serial number (días desde 1899-12-30)
+    if (/^\d{4,6}(\.\d+)?$/.test(v)) {
+        const serial = parseFloat(v);
+        const ms = (serial - 25569) * 86400 * 1000;
+        const d = new Date(ms);
+        if (!isNaN(d)) return d;
+    }
+    // dd/mm/yyyy o dd.mm.yyyy
+    let m = v.match(/^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})/);
+    if (m) {
+        let [, d, mo, y] = m;
+        if (y.length === 2) y = '20' + y;
+        const dt = new Date(Number(y), Number(mo) - 1, Number(d));
+        if (!isNaN(dt)) return dt;
+    }
+    // yyyy-mm-dd
+    m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) {
+        const [, y, mo, d] = m;
+        const dt = new Date(Number(y), Number(mo) - 1, Number(d));
+        if (!isNaN(dt)) return dt;
+    }
+    const generic = new Date(v);
+    return isNaN(generic) ? null : generic;
+}
+
+function diasEntre(a, b) {
+    return Math.round((a.getTime() - b.getTime()) / 86400000);
+}
+
+function toNumber(v) {
+    if (v === undefined || v === null || v === '') return 0;
+    const cleaned = String(v).replace(/[^0-9.,-]/g, '').replace(/\.(?=\d{3},)/g, '').replace(',', '.');
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? 0 : n;
+}
+
+function esVerdadero(v) {
+    if (!v) return false;
+    const s = String(v).trim().toLowerCase();
+    return s === 'true' || s === 'verdadero' || s === 'x' || s === '1' || s === 'sí' || s === 'si';
+}
+
+function csvEscape(v) {
+    v = String(v ?? '');
+    if (/[",\n]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+    return v;
+}
+
+function descargarCSV(nombre, data) {
+    if (!data || !data.length) { showToast('Nada que descargar', 'Primero calcula un resultado.', true); return; }
+    const headers = Object.keys(data[0]);
+    const lines = [headers.join(','), ...data.map(row => headers.map(h => csvEscape(row[h])).join(','))];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = nombre; a.click();
+    URL.revokeObjectURL(url);
+}
+
+/* ---------- Solpeds (localStorage) ---------- */
+const LS_KEY = 'pmi_solpeds';
+const LS_EMAIL = 'pmi_coe_email';
+
+function getSolpeds() { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+function setSolpeds(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+
+document.getElementById('coeEmail').value = localStorage.getItem(LS_EMAIL) || '';
+document.getElementById('coeEmail').addEventListener('change', e => localStorage.setItem(LS_EMAIL, e.target.value.trim()));
+
+function registrarSolped() {
+    const numero = document.getElementById('fSolped').value.trim();
+    const material = document.getElementById('fMaterial').value.trim();
+    if (!numero || !material) {
+        showToast('Faltan datos', 'Completa al menos Nº Solped y Material.', true);
+        return;
+    }
+    const item = {
+        numero, material,
+        cantidad: document.getElementById('fCantidad').value.trim(),
+        centro: document.getElementById('fCentro').value.trim(),
+        comentarios: document.getElementById('fComentarios').value.trim(),
+        fecha: new Date().toLocaleDateString('es-PE'),
+        estado: 'Registrado'
+    };
+    const arr = getSolpeds();
+    arr.unshift(item);
+    setSolpeds(arr);
+
+    const email = document.getElementById('coeEmail').value.trim();
+    const asunto = encodeURIComponent(`Nueva Solped ${item.numero} para conversión a OC Spot`);
+    const cuerpo = encodeURIComponent(
+`Nueva Solped registrada:
+
+Nº Solped: ${item.numero}
+Material: ${item.material}
+Cantidad: ${item.cantidad}
+Centro de costo: ${item.centro}
+Comentarios: ${item.comentarios}
+
+Quedo atenta al seguimiento.`);
+    if (email) window.location.href = `mailto:${email}?subject=${asunto}&body=${cuerpo}`;
+
+    showToast('✅ Solped registrada', email ? 'Se abrió tu correo con el mensaje listo para enviar.' : 'Guardada. Configura el correo del CoE para que se redacte el correo automáticamente.');
+    ['fSolped','fMaterial','fCantidad','fCentro','fComentarios'].forEach(id => document.getElementById(id).value = '');
+}
+
+function renderSolpeds() {
+    const filtro = (document.getElementById('buscarSolped').value || '').toLowerCase();
+    const arr = getSolpeds().filter(s => !filtro || s.numero.toLowerCase().includes(filtro) || s.material.toLowerCase().includes(filtro));
+    const tbody = document.getElementById('solpedsTabla');
+    if (!arr.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="muted" style="text-align:center;padding:20px;">Sin Solpeds registradas todavía.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = arr.map((s, i) => `
+        <tr>
+            <td>${s.numero}</td><td>${s.material}</td><td>${s.cantidad || '-'}</td>
+            <td>${s.centro || '-'}</td><td>${s.fecha}</td>
+            <td><span class="badge ${s.estado === 'Convertido a OC' ? 'verde' : 'azul'}">${s.estado}</span></td>
+            <td><button class="btn secundario pequeno" onclick="marcarConvertida(${i}, '${filtro.replace(/'/g,"")}')">Marcar convertida</button></td>
+        </tr>`).join('');
+}
+
+function marcarConvertida(indexEnFiltro) {
+    const arr = getSolpeds();
+    const filtro = (document.getElementById('buscarSolped').value || '').toLowerCase();
+    const visibles = arr.filter(s => !filtro || s.numero.toLowerCase().includes(filtro) || s.material.toLowerCase().includes(filtro));
+    const target = visibles[indexEnFiltro];
+    const real = arr.findIndex(s => s === target);
+    if (real !== -1) { arr[real].estado = 'Convertido a OC'; setSolpeds(arr); renderSolpeds(); renderKpisInicio(); }
+}
+
+/* ---------- ME59N: candidatas ---------- */
+let tablaCandidatas = [];
+function procesarME5A() {
+    const raw = document.getElementById('me5aInput').value;
+    const { headers, rows } = parseTSV(raw);
+    if (!rows.length) { showToast('No se detectaron filas', 'Verifica que pegaste la tabla con la fila de encabezados.', true); return; }
+
+    const colSolped = findCol(headers, ['Solicitud de pedido']);
+    const colCentro = findCol(headers, ['Centro']);
+    const colMaterial = findCol(headers, ['Material']);
+    const colBorrado = findCol(headers, ['Indicador de borrado']);
+    const colConcluida = findCol(headers, ['Concluida']);
+    const colContrato = findCol(headers, ['Contrato marco']);
+    const colLiberacion = findCol(headers, ['Fecha de liberación', 'Fecha de liberacion']);
+    const colModificado = findCol(headers, ['Modificado el']);
+
+    if (!colSolped) { showToast('Falta columna', 'No encontré la columna "Solicitud de pedido".', true); return; }
+
+    let exclBorrado = 0, exclContrato = 0, exclDias = 0;
+    const hoy = new Date();
+    const candidatas = [];
+
+    rows.forEach(r => {
+        if (colBorrado && esVerdadero(r[colBorrado])) { exclBorrado++; return; }
+        if (colConcluida && String(r[colConcluida]).trim().toLowerCase() === 'x') { exclBorrado++; return; }
+        const contrato = colContrato ? r[colContrato] : '';
+        if (!contrato || !String(contrato).trim()) { exclContrato++; return; }
+
+        let fechaRef = null, dias = null;
+        const fLib = colLiberacion ? parseFecha(r[colLiberacion]) : null;
+        const fMod = colModificado ? parseFecha(r[colModificado]) : null;
+        if (fLib || fMod) {
+            fechaRef = (fLib && fMod) ? (fLib > fMod ? fLib : fMod) : (fLib || fMod);
+            dias = diasEntre(hoy, fechaRef);
+            if (dias > 3) { exclDias++; return; }
+        }
+
+        candidatas.push({
+            'Solicitud de pedido': r[colSolped],
+            'Centro': colCentro ? r[colCentro] : '',
+            'Material': colMaterial ? r[colMaterial] : '',
+            'Contrato marco': contrato,
+            'Fecha ref.': fechaRef ? fechaRef.toLocaleDateString('es-PE') : '-',
+            'Días': dias === null ? '-' : dias
+        });
+    });
+
+    tablaCandidatas = candidatas;
+    document.getElementById('kpiTotalFilas').textContent = rows.length;
+    document.getElementById('kpiExclBorrado').textContent = exclBorrado;
+    document.getElementById('kpiExclContrato').textContent = exclContrato;
+    document.getElementById('kpiExclDias').textContent = exclDias;
+    document.getElementById('kpiCandidatas').textContent = candidatas.length;
+    document.getElementById('me59nTabla').innerHTML = candidatas.map(c => `
+        <tr><td>${c['Solicitud de pedido']}</td><td>${c['Centro']}</td><td>${c['Material']}</td>
+        <td>${c['Contrato marco']}</td><td>${c['Fecha ref.']}</td><td>${c['Días']}</td></tr>`).join('')
+        || '<tr><td colspan="6" class="muted" style="text-align:center;padding:16px;">Ninguna fila pasó los 4 filtros.</td></tr>';
+    document.getElementById('me59nResultado').style.display = 'block';
+    showToast('✅ Cálculo listo', `${candidatas.length} candidatas de ${rows.length} filas leídas.`);
+}
+
+function copiarSolpeds() {
+    if (!tablaCandidatas.length) { showToast('Nada que copiar', 'Primero calcula las candidatas.', true); return; }
+    const lista = tablaCandidatas.map(c => c['Solicitud de pedido']).join('\n');
+    navigator.clipboard.writeText(lista).then(
+        () => showToast('📋 Copiado', `${tablaCandidatas.length} números de Solped en el portapapeles — listo para pegar en ME59N.`),
+        () => showToast('No se pudo copiar', 'Tu navegador bloqueó el portapapeles; selecciona y copia manualmente desde la tabla.', true)
+    );
+}
+
+/* ---------- Estado de Stock SS ---------- */
+let tablaStock = [];
+function procesarStock() {
+    const raw = document.getElementById('stockInput').value;
+    const { headers, rows } = parseTSV(raw);
+    if (!rows.length) { showToast('No se detectaron filas', 'Verifica que pegaste la tabla con encabezados.', true); return; }
+
+    const colStatus = findCol(headers, ['Status sobrestock']);
+    const colCentro = findCol(headers, ['Centro']);
+    const colMaterial = findCol(headers, ['Material']);
+    const colTexto = findCol(headers, ['Texto breve de material', 'Texto breve']);
+    const colStockAct = findCol(headers, ['Stock actual']);
+    const colStockSeg = findCol(headers, ['Stock seguridad']);
+
+    let quiebre = 0, enStock = 0, sobreStock = 0;
+    const resultado = rows.map(r => {
+        let status = colStatus ? r[colStatus] : '';
+        if (!status && colStockAct && colStockSeg) {
+            const act = toNumber(r[colStockAct]), seg = toNumber(r[colStockSeg]);
+            status = act < seg ? 'Quiebre' : 'En stock';
+        }
+        const s = (status || '').trim();
+        if (/quiebre/i.test(s)) quiebre++;
+        else if (/sobre/i.test(s)) sobreStock++;
+        else enStock++;
+        return {
+            'Estado': s || '-',
+            'Centro': colCentro ? r[colCentro] : '',
+            'Material': colMaterial ? r[colMaterial] : '',
+            'Texto breve': colTexto ? r[colTexto] : '',
+            'Stock actual': colStockAct ? r[colStockAct] : '',
+            'Stock seguridad': colStockSeg ? r[colStockSeg] : ''
+        };
+    });
+
+    tablaStock = resultado;
+    document.getElementById('kpiQuiebre').textContent = quiebre;
+    document.getElementById('kpiEnStock').textContent = enStock;
+    document.getElementById('kpiSobreStock').textContent = sobreStock;
+    document.getElementById('kpiTotalStock').textContent = rows.length;
+    document.getElementById('stockTabla').innerHTML = resultado
+        .sort((a, b) => (/quiebre/i.test(a.Estado) ? -1 : 1) - (/quiebre/i.test(b.Estado) ? -1 : 1))
+        .map(r => `<tr><td><span class="badge ${/quiebre/i.test(r.Estado) ? 'rojo' : /sobre/i.test(r.Estado) ? 'naranja' : 'verde'}">${r.Estado}</span></td>
+            <td>${r.Centro}</td><td>${r.Material}</td><td>${r['Texto breve']}</td>
+            <td>${r['Stock actual']}</td><td>${r['Stock seguridad']}</td></tr>`).join('');
+    document.getElementById('stockResultado').style.display = 'block';
+    showToast('✅ Cálculo listo', `${quiebre} en quiebre de ${rows.length} materiales.`);
+}
+
+/* ---------- Contratos → ISA ---------- */
+function procesarContratos() {
+    const raw = document.getElementById('contratosInput').value;
+    const { headers, rows } = parseTSV(raw);
+    if (!rows.length) { showToast('No se detectaron filas', 'Verifica que pegaste la tabla con encabezados.', true); return; }
+
+    const colContrato = findCol(headers, ['Contrato']);
+    const colProveedor = findCol(headers, ['Proveedor', 'Nombre de proveedor']);
+    const colPorAmpliar = findCol(headers, ['Por ampliar']);
+    const colSaldoCant = findCol(headers, ['SALDO CANTIDAD', 'Saldo cantidad']);
+    const colCantAmpliar = findCol(headers, ['Cantidad a ampliar']);
+    const colValAmpliar = findCol(headers, ['Valorizado a ampliar']);
+    const colValPosicion = findCol(headers, ['Valorizado posicion', 'Valorizado posición']);
+    const colValPendTotal = findCol(headers, ['Valorizado pendiente total']);
+
+    const ampliar = rows.filter(r => {
+        if (colPorAmpliar) return /s[ií]/i.test(r[colPorAmpliar] || '');
+        if (colSaldoCant) return toNumber(r[colSaldoCant]) < 0;
+        return false;
+    });
+
+    document.getElementById('kpiAmpliar').textContent = ampliar.length;
+    document.getElementById('contratosAmpliarTabla').innerHTML = ampliar.map(r => `
+        <tr><td>${colContrato ? r[colContrato] : ''}</td><td>${colProveedor ? r[colProveedor] : ''}</td>
+        <td>${colCantAmpliar ? r[colCantAmpliar] : ''}</td><td>${colValAmpliar ? r[colValAmpliar] : ''}</td></tr>`).join('')
+        || '<tr><td colspan="4" class="muted" style="text-align:center;padding:16px;">Ninguno.</td></tr>';
+
+    // Estabilización: agrupar por contrato
+    let estabResumen = [];
+    if (colContrato && colValPosicion && colValPendTotal) {
+        const porContrato = {};
+        rows.forEach(r => {
+            const c = r[colContrato];
+            if (!c) return;
+            if (!porContrato[c]) porContrato[c] = { sumaPosicion: 0, maxPendienteTotal: 0 };
+            porContrato[c].sumaPosicion += toNumber(r[colValPosicion]);
+            porContrato[c].maxPendienteTotal = Math.max(porContrato[c].maxPendienteTotal, toNumber(r[colValPendTotal]));
+        });
+        estabResumen = Object.entries(porContrato).map(([contrato, v]) => ({
+            contrato, suma: v.sumaPosicion, total: v.maxPendienteTotal, diff: v.sumaPosicion - v.maxPendienteTotal
+        })).filter(e => Math.abs(e.diff) > 0.5);
+        document.getElementById('kpiTotalContratos').textContent = Object.keys(porContrato).length;
+    } else {
+        document.getElementById('kpiTotalContratos').textContent = new Set(rows.map(r => colContrato ? r[colContrato] : '')).size;
+    }
+    document.getElementById('kpiEstabilizar').textContent = estabResumen.length;
+    document.getElementById('contratosEstabTabla').innerHTML = estabResumen.map(e => `
+        <tr><td>${e.contrato}</td><td>${e.suma.toFixed(2)}</td><td>${e.total.toFixed(2)}</td>
+        <td><span class="badge ${Math.abs(e.diff) > 0.5 ? 'rojo' : 'verde'}">${e.diff.toFixed(2)}</span></td></tr>`).join('')
+        || '<tr><td colspan="4" class="muted" style="text-align:center;padding:16px;">Sin diferencias detectadas.</td></tr>';
+
+    window._resumenISA = { ampliar: ampliar.length, estabilizar: estabResumen.length };
+    document.getElementById('contratosResultado').style.display = 'block';
+    showToast('✅ Cálculo listo', `${ampliar.length} posiciones por ampliar, ${estabResumen.length} contratos a estabilizar.`);
+}
+
+function redactarCorreoISA() {
+    const r = window._resumenISA || { ampliar: 0, estabilizar: 0 };
+    const asunto = encodeURIComponent('Reporte de contratos — ampliación y estabilización');
+    const cuerpo = encodeURIComponent(
+`Hola Isa,
+
+Adjunto el resumen de esta corrida:
+
+- Posiciones que requieren ampliación: ${r.ampliar}
+- Contratos con diferencia de estabilización (suma por posición vs. valor pendiente total): ${r.estabilizar}
+
+Quedo atenta a tu revisión.`);
+    window.location.href = `mailto:?subject=${asunto}&body=${cuerpo}`;
+}
+
+/* ---------- Inicio: KPIs ---------- */
+function renderKpisInicio() {
+    const solpeds = getSolpeds();
+    const pendientes = solpeds.filter(s => s.estado !== 'Convertido a OC').length;
+    const convertidas = solpeds.filter(s => s.estado === 'Convertido a OC').length;
+    document.getElementById('kpisInicio').innerHTML = `
+        <div class="kpi azul"><span class="num">${solpeds.length}</span><span class="lbl">📝 Solpeds registradas</span></div>
+        <div class="kpi naranja"><span class="num">${pendientes}</span><span class="lbl">⏳ Pendientes de OC</span></div>
+        <div class="kpi verde"><span class="num">${convertidas}</span><span class="lbl">✅ Convertidas a OC</span></div>
+        <div class="kpi rojo"><span class="num">${tablaCandidatas.length || tablaStock.filter(r=>/quiebre/i.test(r.Estado)).length || 0}</span><span class="lbl">Última corrida (candidatas/quiebres)</span></div>
+    `;
+}
+
+renderKpisInicio();
+</script>
+
+</body>
+</html>

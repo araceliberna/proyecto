@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulación — Sistema Unificado PMI (Power Apps)</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; }
+    body { background:#0f1923; color:#e0e0e0; display:flex; height:100vh; overflow:hidden; }
+
+    /* Sidebar */
+    .sidebar { width:230px; background:#15232e; border-right:1px solid #2a4a5e; padding:20px 0; display:flex; flex-direction:column; flex-shrink:0; }
+    .sidebar .logo { padding:0 20px 20px 20px; border-bottom:1px solid #2a4a5e; margin-bottom:10px; }
+    .sidebar .logo h1 { font-size:15px; color:#4fc3f7; }
+    .sidebar .logo span { font-size:11px; color:#78909c; }
+    .nav-btn { display:flex; align-items:center; gap:10px; padding:12px 20px; background:none; border:none; color:#b0bec5; text-align:left; cursor:pointer; font-size:13px; border-left:3px solid transparent; transition:.15s; }
+    .nav-btn:hover { background:rgba(79,195,247,0.08); color:#e0e0e0; }
+    .nav-btn.active { background:rgba(79,195,247,0.12); border-left:3px solid #4fc3f7; color:#4fc3f7; font-weight:bold; }
+    .nav-btn .ico { font-size:16px; width:20px; text-align:center; }
+
+    /* Main */
+    .main { flex:1; overflow-y:auto; padding:24px 30px; }
+    .screen { display:none; }
+    .screen.active { display:block; }
+
+    .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .topbar h2 { color:#4fc3f7; font-size:20px; }
+    .topbar .fecha { color:#78909c; font-size:13px; }
+
+    .card { background:#1a2733; border:1px solid #2a4a5e; border-radius:10px; padding:18px; margin-bottom:16px; }
+    .card h3 { color:#4fc3f7; font-size:14px; margin-bottom:12px; }
+
+    .grid { display:grid; gap:16px; }
+    .grid-3 { grid-template-columns:repeat(3,1fr); }
+    .grid-4 { grid-template-columns:repeat(4,1fr); }
+    .grid-2 { grid-template-columns:repeat(2,1fr); }
+
+    .kpi { text-align:center; padding:16px; border-radius:8px; border:2px solid #2a4a5e; }
+    .kpi .num { font-size:32px; font-weight:bold; display:block; }
+    .kpi .lbl { font-size:12px; color:#90a4ae; margin-top:4px; }
+    .kpi.rojo { border-color:#f44336; } .kpi.rojo .num { color:#f44336; }
+    .kpi.naranja { border-color:#ff9800; } .kpi.naranja .num { color:#ff9800; }
+    .kpi.verde { border-color:#4caf50; } .kpi.verde .num { color:#4caf50; }
+    .kpi.azul { border-color:#4fc3f7; } .kpi.azul .num { color:#4fc3f7; }
+
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    thead th { background:#15232e; color:#78909c; padding:10px 12px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.5px; border-bottom:2px solid #2a4a5e; }
+    tbody td { padding:10px 12px; border-bottom:1px solid #1e2d38; }
+    tbody tr:hover { background:rgba(79,195,247,0.05); }
+
+    .badge { padding:3px 9px; border-radius:4px; font-size:11px; font-weight:bold; display:inline-block; border:1px solid; }
+    .badge.rojo { background:rgba(244,67,54,.2); color:#f44336; border-color:#f44336; }
+    .badge.naranja { background:rgba(255,152,0,.2); color:#ff9800; border-color:#ff9800; }
+    .badge.verde { background:rgba(76,175,80,.2); color:#4caf50; border-color:#4caf50; }
+    .badge.azul { background:rgba(79,195,247,.2); color:#4fc3f7; border-color:#4fc3f7; }
+    .badge.gris { background:rgba(120,144,156,.2); color:#90a4ae; border-color:#90a4ae; }
+
+    .btn { background:#4fc3f7; color:#0f1923; border:none; padding:9px 16px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold; }
+    .btn:hover { background:#81d4fa; }
+    .btn.critico { background:#f44336; color:#fff; }
+    .btn.secundario { background:#2a4a5e; color:#e0e0e0; }
+    .btn.pequeno { padding:5px 10px; font-size:11px; }
+
+    input, select, textarea { background:#0f1923; border:1px solid #2a4a5e; color:#e0e0e0; padding:8px 10px; border-radius:6px; font-size:13px; width:100%; }
+    label.f { display:block; font-size:12px; color:#90a4ae; margin-bottom:4px; margin-top:10px; }
+
+    .toast { position:fixed; bottom:24px; right:24px; background:#1a2733; border:1px solid #4fc3f7; padding:14px 18px; border-radius:8px; max-width:360px; box-shadow:0 4px 20px rgba(0,0,0,.4); display:none; font-size:13px; z-index:999; }
+    .toast.show { display:block; animation:fadein .2s; }
+    .toast .t-title { color:#4fc3f7; font-weight:bold; margin-bottom:4px; }
+    @keyframes fadein { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+
+    .muted { color:#78909c; font-size:12px; }
+    .progress-bar { height:8px; background:#0f1923; border-radius:4px; overflow:hidden; margin-top:6px; }
+    .progress-bar div { height:100%; background:#4fc3f7; }
+    .progress-bar.warn div { background:#ff9800; }
+    .progress-bar.bad div { background:#f44336; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo">
+        <h1>🧭 Panel PMI</h1>
+        <span>Planeamiento Materiales Indirectos</span>
+    </div>
+    <button class="nav-btn active" data-screen="inicio"><span class="ico">🏠</span> Inicio</button>
+    <button class="nav-btn" data-screen="solped"><span class="ico">📝</span> Registrar Solped → OC Spot</button>
+    <button class="nav-btn" data-screen="me59n"><span class="ico">⚙️</span> Generar Solped (ME59N)</button>
+    <button class="nav-btn" data-screen="radar"><span class="ico">🔍</span> Radar de Riesgos</button>
+    <button class="nav-btn" data-screen="stockflow"><span class="ico">📈</span> Stockflow</button>
+    <button class="nav-btn" data-screen="contratos"><span class="ico">📄</span> Contratos → ISA</button>
+    <button class="nav-btn" data-screen="estado"><span class="ico">📋</span> Consultar estado</button>
+</div>
+
+<div class="main">
+
+    <!-- INICIO -->
+    <div class="screen active" id="screen-inicio">
+        <div class="topbar"><h2>Inicio</h2><span class="fecha" id="fecha1"></span></div>
+        <div class="grid grid-4">
+            <div class="kpi rojo"><span class="num">6</span><span class="lbl">🔴 Quiebres críticos</span></div>
+            <div class="kpi naranja"><span class="num">4</span><span class="lbl">🟠 Contratos por ampliar</span></div>
+            <div class="kpi azul"><span class="num">12</span><span class="lbl">📝 Solpeds pendientes CoE</span></div>
+            <div class="kpi verde"><span class="num">87%</span><span class="lbl">✅ OC generadas hoy (ME59N)</span></div>
+        </div>
+        <div class="card">
+            <h3>Acciones rápidas</h3>
+            <div class="grid grid-3">
+                <button class="btn" onclick="goScreen('solped')">📝 Nueva Solped → OC Spot</button>
+                <button class="btn" onclick="goScreen('me59n')">⚙️ Generar Solped (ME59N)</button>
+                <button class="btn secundario" onclick="simularReporte()">🧾 Generar reporte semanal</button>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Últimas notificaciones</h3>
+            <table>
+                <tbody>
+                    <tr><td>🔴 Hace 12 min</td><td>Proveedor Linde bloqueado — 3 OC afectadas (45,000 PEN)</td></tr>
+                    <tr><td>🟠 Hace 1 h</td><td>Contrato 5100003400 al 90% de consumo — ampliación sugerida</td></tr>
+                    <tr><td>🔵 Hace 3 h</td><td>ME59N UN1: 22 Solped convertidas, 3 con error</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SOLPED -->
+    <div class="screen" id="screen-solped">
+        <div class="topbar"><h2>Registrar requerimiento Solped → OC Spot</h2></div>
+        <div class="card" style="max-width:520px;">
+            <label class="f">Nº Solped</label><input id="f-solped" value="1008512345">
+            <label class="f">Material</label><input id="f-material" value="CA0770010860 - FAJA DENTADA">
+            <label class="f">Cantidad</label><input id="f-cantidad" type="number" value="5">
+            <label class="f">Centro de costo</label><input id="f-centro" value="1506">
+            <label class="f">Comentario</label><textarea rows="3">Urgente, para mantenimiento programado.</textarea>
+            <div style="margin-top:16px;">
+                <button class="btn" onclick="registrarSolped()">Guardar y notificar a CoE Compras</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ME59N -->
+    <div class="screen" id="screen-me59n">
+        <div class="topbar"><h2>Generar Solped automáticas → OC (ME59N)</h2></div>
+        <div class="card">
+            <h3>Seleccionar unidad de negocio</h3>
+            <div class="grid grid-2" style="max-width:420px;">
+                <button class="btn" onclick="correrME59N('UN1')">▶ Ejecutar ME59N — UN1</button>
+                <button class="btn secundario" onclick="correrME59N('UN2')">▶ Ejecutar ME59N — UN2</button>
+            </div>
+            <p class="muted" id="me59n-status" style="margin-top:14px;"></p>
+        </div>
+        <div class="card" id="me59n-resultado" style="display:none;">
+            <h3>Resultado de la última ejecución</h3>
+            <div class="grid grid-3" style="margin-bottom:14px;">
+                <div class="kpi verde"><span class="num" id="me59n-ok">0</span><span class="lbl">Convertidas a OC</span></div>
+                <div class="kpi rojo"><span class="num" id="me59n-err">0</span><span class="lbl">Con error</span></div>
+                <div class="kpi azul" id="me59n-un-kpi"><span class="num">-</span><span class="lbl">Unidad de negocio</span></div>
+            </div>
+            <table>
+                <thead><tr><th>Solped</th><th>Material</th><th>Mensaje SAP</th><th>Categoría</th><th>Notificado a</th></tr></thead>
+                <tbody id="me59n-tabla"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- RADAR -->
+    <div class="screen" id="screen-radar">
+        <div class="topbar"><h2>🔍 Radar de Riesgos Tempranos</h2></div>
+        <div class="grid grid-4" style="margin-bottom:16px;">
+            <div class="kpi rojo"><span class="num">3</span><span class="lbl">Críticas</span></div>
+            <div class="kpi naranja"><span class="num">4</span><span class="lbl">Alta prioridad</span></div>
+            <div class="kpi azul"><span class="num">9</span><span class="lbl">Total activas</span></div>
+            <div class="kpi verde"><span class="num">2</span><span class="lbl">Resueltas hoy</span></div>
+        </div>
+        <div class="card">
+            <table>
+                <thead><tr><th>Alerta</th><th>Material/Contrato</th><th>Riesgo</th><th>Urgencia</th><th>Acción</th></tr></thead>
+                <tbody>
+                    <tr><td>🚨 Stock Crítico</td><td>ZERS Válvula 3001</td><td>Stock 3, SS 5, sin OC</td><td><span class="badge rojo">Crítica</span></td><td><button class="btn critico pequeno" onclick="resolverFila(this)">Generar OC</button></td></tr>
+                    <tr><td>📊 Saldo Contrato Bajo</td><td>Contrato 5100003400</td><td>Consumo 90%, 4 meses restantes</td><td><span class="badge naranja">Alta</span></td><td><button class="btn pequeno" onclick="resolverFila(this)">Solicitar ampliación</button></td></tr>
+                    <tr><td>🔒 Proveedor Bloqueado</td><td>Linde (1000001168)</td><td>3 OC abiertas, 45,000 PEN</td><td><span class="badge rojo">Crítica</span></td><td><button class="btn critico pequeno" onclick="resolverFila(this)">Desbloquear</button></td></tr>
+                    <tr><td>⚙️ Solped sin convertir</td><td>1008512399 (UN1)</td><td>Error ME59N: proveedor bloqueado</td><td><span class="badge rojo">Crítica</span></td><td><button class="btn critico pequeno" onclick="resolverFila(this)">Ver detalle</button></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- STOCKFLOW -->
+    <div class="screen" id="screen-stockflow">
+        <div class="topbar"><h2>📈 Stockflow</h2></div>
+        <div class="card">
+            <h3>Cumplimiento de Stock de Seguridad por familia</h3>
+            <table>
+                <thead><tr><th>Familia</th><th>%Cumpl. Stock Seg.</th><th>DG Consumo</th><th>%Cumpl consumo</th><th>% Avance</th></tr></thead>
+                <tbody>
+                    <tr><td>Repuestos MRO</td><td><div>62%</div><div class="progress-bar warn"><div style="width:62%"></div></div></td><td>18</td><td>74%</td><td>55%</td></tr>
+                    <tr><td>Materiales de empaque (ZHIB)</td><td><div>91%</div><div class="progress-bar"><div style="width:91%"></div></div></td><td>27</td><td>98%</td><td>60%</td></tr>
+                    <tr><td>Servicios / no líquidos (ZNLA)</td><td><div>45%</div><div class="progress-bar bad"><div style="width:45%"></div></div></td><td>9</td><td>65%</td><td>48%</td></tr>
+                </tbody>
+            </table>
+            <p class="muted" style="margin-top:10px;">Rojo: por debajo del 80% del stock de seguridad. Datos desde tabla EstadoStockSS + histórico Kardex.</p>
+        </div>
+    </div>
+
+    <!-- CONTRATOS -->
+    <div class="screen" id="screen-contratos">
+        <div class="topbar"><h2>📄 Contratos → envío a ISA</h2></div>
+        <div class="card">
+            <h3>Contratos con ampliación o estabilización pendiente</h3>
+            <table>
+                <thead><tr><th>Contrato</th><th>Proveedor</th><th>¿Ampliar?</th><th>Valorizado a ampliar</th><th>Estabilización (Pendiente)</th></tr></thead>
+                <tbody>
+                    <tr><td>5100004043</td><td>TECNIFAJAS S.A.</td><td><span class="badge naranja">Sí</span></td><td>14.90 PEN</td><td>0</td></tr>
+                    <tr><td>5100004053</td><td>SUDAMERICANA DE RODAMIENTOS</td><td><span class="badge naranja">Sí</span></td><td>17.86 PEN</td><td>0</td></tr>
+                    <tr><td>5100001708</td><td>VARIOS</td><td><span class="badge gris">No</span></td><td>0</td><td><span class="badge rojo">-1,031.24</span></td></tr>
+                </tbody>
+            </table>
+            <div style="margin-top:14px;">
+                <button class="btn" onclick="enviarIsa()">📤 Generar y enviar archivo a ISA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ESTADO -->
+    <div class="screen" id="screen-estado">
+        <div class="topbar"><h2>📋 Consultar estado</h2></div>
+        <div class="card">
+            <h3>Solpeds registradas</h3>
+            <table>
+                <thead><tr><th>Nº Solped</th><th>Material</th><th>Estado</th><th>Registrado por</th></tr></thead>
+                <tbody>
+                    <tr><td>1008512345</td><td>FAJA DENTADA 630x3/8"</td><td><span class="badge azul">Registrado</span></td><td>A. Bernal</td></tr>
+                    <tr><td>1008511908</td><td>UNION UNIVERSAL PVC 2"</td><td><span class="badge verde">Convertido a OC</span></td><td>A. Bernal</td></tr>
+                    <tr><td>1008512157</td><td>FLOCULANTE DAF</td><td><span class="badge naranja">En seguimiento CoE</span></td><td>J. Guzmán</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h3>Últimas ejecuciones de script/ME59N</h3>
+            <table>
+                <thead><tr><th>Tipo</th><th>Fecha</th><th>Estado</th><th>Detalle</th></tr></thead>
+                <tbody>
+                    <tr><td>ME59N UN1</td><td>Hoy 09:14</td><td><span class="badge verde">Exitoso parcial</span></td><td>22 OK / 3 error</td></tr>
+                    <tr><td>Actualizar EstadoStockSS</td><td>Hoy 07:00</td><td><span class="badge verde">Exitoso</span></td><td>75,149 filas</td></tr>
+                    <tr><td>Actualizar ContratosSaldo</td><td>Ayer 18:32</td><td><span class="badge rojo">Error</span></td><td>Timeout SAP</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<div class="toast" id="toast">
+    <div class="t-title" id="toast-title">Acción</div>
+    <div id="toast-body"></div>
+</div>
+
+<script>
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => goScreen(btn.dataset.screen));
+    });
+
+    function goScreen(name) {
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.screen === name));
+        document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === 'screen-' + name));
+    }
+
+    function showToast(title, body) {
+        document.getElementById('toast-title').textContent = title;
+        document.getElementById('toast-body').textContent = body;
+        const t = document.getElementById('toast');
+        t.classList.add('show');
+        clearTimeout(window._toastTimer);
+        window._toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+    }
+
+    function registrarSolped() {
+        const num = document.getElementById('f-solped').value;
+        showToast('✅ Solped registrada', `${num} guardada. Se notificó al CoE de Compras por Teams/correo para seguimiento.`);
+    }
+
+    function simularReporte() {
+        showToast('🧾 Reporte generado', 'Reporte semanal PMI guardado en SharePoint y notificado por correo.');
+    }
+
+    const erroresSim = {
+        UN1: [
+            {solped:'1008512399', material:'CA0770008067 - Rodamiento', msg:'Proveedor bloqueado para pedidos', cat:'Proveedor bloqueado', notif:'Compras / Finanzas'},
+            {solped:'1008512401', material:'70004234 - Yunque Flow-Pack', msg:'No existe fuente de suministro fijada', cat:'Sin fuente de suministro', notif:'Planeador'},
+            {solped:'1008512410', material:'CA0770010999 - Rodamiento', msg:'Diferencia de unidad de medida', cat:'Diferencia UM', notif:'Planeador'},
+        ],
+        UN2: [
+            {solped:'1008513002', material:'70000017 - Empaquetadura', msg:'Falta registro de información de compras', cat:'Dato maestro', notif:'Planeador'},
+        ]
+    };
+
+    function correrME59N(un) {
+        document.getElementById('me59n-status').textContent = `Ejecutando ME59N para ${un}... (simulado)`;
+        setTimeout(() => {
+            const errores = erroresSim[un] || [];
+            const ok = un === 'UN1' ? 22 : 14;
+            document.getElementById('me59n-status').textContent = `Última ejecución: ${un}, ${new Date().toLocaleTimeString('es-PE')}`;
+            document.getElementById('me59n-resultado').style.display = 'block';
+            document.getElementById('me59n-ok').textContent = ok;
+            document.getElementById('me59n-err').textContent = errores.length;
+            document.getElementById('me59n-un-kpi').querySelector('.num').textContent = un;
+            const tbody = document.getElementById('me59n-tabla');
+            tbody.innerHTML = errores.map(e => `
+                <tr>
+                    <td>${e.solped}</td>
+                    <td>${e.material}</td>
+                    <td>${e.msg}</td>
+                    <td><span class="badge naranja">${e.cat}</span></td>
+                    <td>${e.notif}</td>
+                </tr>`).join('');
+            showToast(`⚙️ ME59N ${un} completado`, `${ok} Solped convertidas a OC, ${errores.length} con error (clasificadas y notificadas).`);
+        }, 900);
+    }
+
+    function resolverFila(btn) {
+        const fila = btn.closest('tr');
+        fila.style.opacity = '0.4';
+        showToast('✔ Acción disparada', 'Se registró la acción y se notificó al responsable (simulado).');
+    }
+
+    function enviarIsa() {
+        showToast('📤 Archivo enviado a ISA', 'Se generó la versión liviana de Contratos y se envió por correo/Teams a ISA (CoE Compras).');
+    }
+
+    const fechaEl = document.getElementById('fecha1');
+    fechaEl.textContent = '📅 ' + new Date().toLocaleDateString('es-PE', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radar de Riesgos Tempranos - Materiales Indirectos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #0f1923;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a2733, #1e3a4d);
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #2a4a5e;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #4fc3f7;
+        }
+
+        .header .fecha {
+            color: #90a4ae;
+            font-size: 14px;
+        }
+
+        .alertas-resumen {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .alerta-card {
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid transparent;
+        }
+
+        .alerta-card.roja {
+            background: rgba(244, 67, 54, 0.15);
+            border-color: #f44336;
+        }
+
+        .alerta-card.naranja {
+            background: rgba(255, 152, 0, 0.15);
+            border-color: #ff9800;
+        }
+
+        .alerta-card.amarilla {
+            background: rgba(255, 235, 59, 0.1);
+            border-color: #ffeb3b;
+        }
+
+        .alerta-card .numero {
+            font-size: 48px;
+            font-weight: bold;
+            color: #fff;
+            display: block;
+        }
+
+        .alerta-card.roja .numero {
+            color: #f44336;
+        }
+
+        .alerta-card.naranja .numero {
+            color: #ff9800;
+        }
+
+        .alerta-card.amarilla .numero {
+            color: #ffeb3b;
+        }
+
+        .alerta-card .etiqueta {
+            font-size: 13px;
+            color: #b0bec5;
+            margin-top: 5px;
+        }
+
+        .filtros {
+            background: #1a2733;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            border: 1px solid #2a4a5e;
+        }
+
+        .filtros label {
+            color: #90a4ae;
+            font-size: 13px;
+            margin-right: 5px;
+        }
+
+        .filtros select,
+        .filtros input {
+            background: #0f1923;
+            border: 1px solid #2a4a5e;
+            color: #e0e0e0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .tabla-container {
+            background: #1a2733;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #2a4a5e;
+        }
+
+        .tabla-header {
+            background: #1e3a4d;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tabla-header h2 {
+            font-size: 18px;
+            color: #4fc3f7;
+        }
+
+        .tabla-header .contador {
+            background: #4fc3f7;
+            color: #0f1923;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            background: #15232e;
+            color: #78909c;
+            padding: 12px 15px;
+            text-align: left;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid #2a4a5e;
+        }
+
+        tbody td {
+            padding: 14px 15px;
+            border-bottom: 1px solid #1e2d38;
+            font-size: 13px;
+        }
+
+        tbody tr:hover {
+            background: rgba(79, 195, 247, 0.05);
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .badge.rojo {
+            background: rgba(244, 67, 54, 0.25);
+            color: #f44336;
+            border: 1px solid #f44336;
+        }
+
+        .badge.naranja {
+            background: rgba(255, 152, 0, 0.25);
+            color: #ff9800;
+            border: 1px solid #ff9800;
+        }
+
+        .badge.amarillo {
+            background: rgba(255, 235, 59, 0.2);
+            color: #ffeb3b;
+            border: 1px solid #ffeb3b;
+        }
+
+        .badge.tipo {
+            background: rgba(79, 195, 247, 0.2);
+            color: #4fc3f7;
+            border: 1px solid #4fc3f7;
+        }
+
+        .accion-btn {
+            background: #4fc3f7;
+            color: #0f1923;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .accion-btn:hover {
+            background: #81d4fa;
+        }
+
+        .accion-btn.critico {
+            background: #f44336;
+            color: white;
+        }
+
+        .accion-btn.critico:hover {
+            background: #ef5350;
+        }
+
+        .sin-alertas {
+            text-align: center;
+            padding: 40px;
+            color: #546e7a;
+            font-size: 16px;
+        }
+
+        .leyenda {
+            display: flex;
+            gap: 20px;
+            padding: 15px 20px;
+            font-size: 12px;
+            color: #78909c;
+        }
+
+        .leyenda span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .punto {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .punto.rojo {
+            background: #f44336;
+        }
+
+        .punto.naranja {
+            background: #ff9800;
+        }
+
+        .punto.amarillo {
+            background: #ffeb3b;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <h1>🔍 Radar de Riesgos Tempranos</h1>
+            <span style="color:#78909c;font-size:13px;">Materiales Indirectos — ZERS · ZHIB · ZNLA</span>
+        </div>
+        <div class="fecha" id="fechaActual"></div>
+    </div>
+
+    <!-- Tarjetas de resumen -->
+    <div class="alertas-resumen">
+        <div class="alerta-card roja">
+            <span class="numero" id="countCriticas">0</span>
+            <span class="etiqueta">🔴 Críticas</span>
+        </div>
+        <div class="alerta-card naranja">
+            <span class="numero" id="countAltas">0</span>
+            <span class="etiqueta">🟠 Alta Prioridad</span>
+        </div>
+        <div class="alerta-card amarilla">
+            <span class="numero" id="countMedias">0</span>
+            <span class="etiqueta">🟡 Prioridad Media</span>
+        </div>
+        <div class="alerta-card" style="background:rgba(79,195,247,0.1);border-color:#4fc3f7;">
+            <span class="numero" style="color:#4fc3f7;" id="countTotal">0</span>
+            <span class="etiqueta">📋 Total Activas</span>
+        </div>
+        <div class="alerta-card" style="background:rgba(76,175,80,0.1);border-color:#4caf50;">
+            <span class="numero" style="color:#4caf50;" id="countResueltas">0</span>
+            <span class="etiqueta">✅ Resueltas Hoy</span>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filtros">
+        <label>Filtrar por Alerta:</label>
+        <select id="filtroAlerta" onchange="filtrarTabla()">
+            <option value="todas">Todas las alertas</option>
+            <option value="1">🚨 Stock Crítico</option>
+            <option value="2">📊 Saldo Contrato Bajo</option>
+            <option value="3">🔒 Proveedor Bloqueado</option>
+            <option value="4">📦 Entrega en Riesgo</option>
+            <option value="5">💰 Presupuesto en Riesgo</option>
+        </select>
+
+        <label>Tipo Material:</label>
+        <select id="filtroMaterial" onchange="filtrarTabla()">
+            <option value="todos">Todos</option>
+            <option value="ZERS">ZERS</option>
+            <option value="ZHIB">ZHIB</option>
+            <option value="ZNLA">ZNLA</option>
+        </select>
+
+        <label>Urgencia:</label>
+        <select id="filtroUrgencia" onchange="filtrarTabla()">
+            <option value="todas">Todas</option>
+            <option value="critica">🔴 Crítica</option>
+            <option value="alta">🟠 Alta</option>
+            <option value="media">🟡 Media</option>
+        </select>
+
+        <button onclick="resetFiltros()" style="background:#2a4a5e;color:#e0e0e0;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;margin-left:auto;">↻ Limpiar Filtros</button>
+    </div>
+
+    <!-- Tabla principal -->
+    <div class="tabla-container">
+        <div class="tabla-header">
+            <h2>Alertas Activas</h2>
+            <span class="contador" id="contadorTabla">0 alertas</span>
+        </div>
+
+        <div class="leyenda">
+            <span><span class="punto rojo"></span> Crítica — Actuar en &lt;2 horas</span>
+            <span><span class="punto naranja"></span> Alta — Actuar en &lt;24 horas</span>
+            <span><span class="punto amarillo"></span> Media — Actuar esta semana</span>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Alerta</th>
+                    <th>Material / Pedido</th>
+                    <th>Tipo</th>
+                    <th>Riesgo Detectado</th>
+                    <th>Valor Involucrado</th>
+                    <th>Fecha Límite</th>
+                    <th>Urgencia</th>
+                    <th>Responsable</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody id="tablaAlertas">
+                <!-- Se llena dinámicamente -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Datos de alertas (simulados con ejemplos reales de la lista del usuario)
+        const alertas = [{
+            id: 1,
+            tipoAlerta: 1,
+            nombreAlerta: '🚨 Stock Crítico',
+            material: 'ZERS Válvula 3001',
+            tipoMaterial: 'ZERS',
+            riesgo: 'Stock: 3 und. SS: 5 und. Sin OC abierta.',
+            valor: '12,500 PEN',
+            fechaLimite: '2026-07-01',
+            urgencia: 'critica',
+            responsable: 'Planeador',
+            accion: 'Generar OC YA'
+        }, {
+            id: 2,
+            tipoAlerta: 1,
+            nombreAlerta: '🚨 Stock Crítico',
+            material: 'ZHIB Tinta Omega',
+            tipoMaterial: 'ZHIB',
+            riesgo: 'Stock: 12 und. SS: 10 und. Sin OC abierta.',
+            valor: '3,200 PEN',
+            fechaLimite: '2026-07-02',
+            urgencia: 'alta',
+            responsable: 'Planeador',
+            accion: 'Verificar Spot'
+        }, {
+            id: 3,
+            tipoAlerta: 2,
+            nombreAlerta: '📊 Saldo Contrato Bajo',
+            material: 'Contrato 5100003400',
+            tipoMaterial: 'ZHIB',
+            riesgo: 'Consumo: 90%. Vigencia restante: 4 meses.',
+            valor: '135,000 / 150,000 PEN',
+            fechaLimite: '2026-07-15',
+            urgencia: 'alta',
+            responsable: 'Comprador',
+            accion: 'Solicitar ampliación'
+        }, {
+            id: 4,
+            tipoAlerta: 2,
+            nombreAlerta: '📊 Saldo Contrato Bajo',
+            material: 'Contrato 5100002059',
+            tipoMaterial: 'ZERS',
+            riesgo: 'Consumo: 85%. Vigencia restante: 3 meses.',
+            valor: '68,000 / 80,000 USD',
+            fechaLimite: '2026-07-20',
+            urgencia: 'alta',
+            responsable: 'Comprador',
+            accion: 'Ampliar contrato'
+        }, {
+            id: 5,
+            tipoAlerta: 3,
+            nombreAlerta: '🔒 Proveedor Bloqueado',
+            material: 'Linde (1000001168)',
+            tipoMaterial: 'ZERS',
+            riesgo: '3 OC abiertas. Proveedor bloqueado en SAP.',
+            valor: '45,000 PEN',
+            fechaLimite: '2026-07-01',
+            urgencia: 'critica',
+            responsable: 'Compras / Finanzas',
+            accion: 'Desbloquear urgente'
+        }, {
+            id: 6,
+            tipoAlerta: 3,
+            nombreAlerta: '🔒 Proveedor Bloqueado',
+            material: 'Omega (1000000416)',
+            tipoMaterial: 'ZHIB',
+            riesgo: '1 Spot pendiente. Proveedor bloqueado.',
+            valor: '8,500 PEN',
+            fechaLimite: '2026-07-03',
+            urgencia: 'alta',
+            responsable: 'Compras',
+            accion: 'Gestionar desbloqueo'
+        }, {
+            id: 7,
+            tipoAlerta: 4,
+            nombreAlerta: '📦 Entrega en Riesgo',
+            material: 'Pedido 45000123',
+            tipoMaterial: 'ZERS',
+            riesgo: 'Entrega: 22-Jun. Sin confirmación desde 10-Jun.',
+            valor: '18,000 PEN',
+            fechaLimite: '2026-06-22',
+            urgencia: 'critica',
+            responsable: 'Gestor',
+            accion: 'Llamar proveedor HOY'
+        }, {
+            id: 8,
+            tipoAlerta: 4,
+            nombreAlerta: '📦 Entrega en Riesgo',
+            material: 'Pedido 45000145',
+            tipoMaterial: 'ZHIB',
+            riesgo: 'Entrega: 23-Jun. Proveedor confirmó. Sin guía.',
+            valor: '2,800 PEN',
+            fechaLimite: '2026-06-23',
+            urgencia: 'media',
+            responsable: 'Gestor',
+            accion: 'Vigilar ingreso'
+        }, {
+            id: 9,
+            tipoAlerta: 5,
+            nombreAlerta: '💰 Presupuesto en Riesgo',
+            material: 'CP 1507',
+            tipoMaterial: 'ZNLA',
+            riesgo: 'Gasto: 91%. Día 20 de 30.',
+            valor: '91,000 / 100,000 PEN',
+            fechaLimite: '2026-07-05',
+            urgencia: 'alta',
+            responsable: 'Controller',
+            accion: 'Bloquear compras no críticas'
+        }, {
+            id: 10,
+            tipoAlerta: 5,
+            nombreAlerta: '💰 Presupuesto en Riesgo',
+            material: 'CP 1024',
+            tipoMaterial: 'ZNLA',
+            riesgo: 'Gasto: 80%. Día 15 de 30.',
+            valor: '160,000 / 200,000 PEN',
+            fechaLimite: '2026-07-10',
+            urgencia: 'media',
+            responsable: 'Controller',
+            accion: 'Revisar gastos'
+        }];
+
+        function renderizarTabla(datos) {
+            const tbody = document.getElementById('tablaAlertas');
+            if (datos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="sin-alertas">✅ No hay alertas activas con los filtros seleccionados.</td></tr>';
+                document.getElementById('contadorTabla').textContent = '0 alertas';
+                document.getElementById('countTotal').textContent = '0';
+                document.getElementById('countCriticas').textContent = '0';
+                document.getElementById('countAltas').textContent = '0';
+                document.getElementById('countMedias').textContent = '0';
+                document.getElementById('countResueltas').textContent = '0';
+                return;
+            }
+
+            let html = '';
+            datos.forEach(a => {
+                let badgeUrgencia = '';
+                if (a.urgencia === 'critica') badgeUrgencia = '<span class="badge rojo">🔴 Crítica</span>';
+                else if (a.urgencia === 'alta') badgeUrgencia =
+                    '<span class="badge naranja">🟠 Alta</span>';
+                else badgeUrgencia = '<span class="badge amarillo">🟡 Media</span>';
+
+                let claseAccion = a.urgencia === 'critica' ? 'accion-btn critico' : 'accion-btn';
+
+                html += `
+                    <tr>
+                        <td>${a.nombreAlerta}</td>
+                        <td><strong>${a.material}</strong></td>
+                        <td><span class="badge tipo">${a.tipoMaterial}</span></td>
+                        <td>${a.riesgo}</td>
+                        <td>${a.valor}</td>
+                        <td>${a.fechaLimite}</td>
+                        <td>${badgeUrgencia}</td>
+                        <td>${a.responsable}</td>
+                        <td><button class="${claseAccion}" onclick="marcarResuelta(${a.id})">✓ ${a.accion}</button></td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+
+            // Actualizar contadores
+            const criticas = datos.filter(a => a.urgencia === 'critica').length;
+            const altas = datos.filter(a => a.urgencia === 'alta').length;
+            const medias = datos.filter(a => a.urgencia === 'media').length;
+
+            document.getElementById('contadorTabla').textContent = `${datos.length} alertas`;
+            document.getElementById('countTotal').textContent = datos.length;
+            document.getElementById('countCriticas').textContent = criticas;
+            document.getElementById('countAltas').textContent = altas;
+            document.getElementById('countMedias').textContent = medias;
+        }
+
+        function filtrarTabla() {
+            const filtroAlerta = document.getElementById('filtroAlerta').value;
+            const filtroMaterial = document.getElementById('filtroMaterial').value;
+            const filtroUrgencia = document.getElementById('filtroUrgencia').value;
+
+            let datosFiltrados = alertas;
+
+            if (filtroAlerta !== 'todas') {
+                datosFiltrados = datosFiltrados.filter(a => a.tipoAlerta === parseInt(filtroAlerta));
+            }
+            if (filtroMaterial !== 'todos') {
+                datosFiltrados = datosFiltrados.filter(a => a.tipoMaterial === filtroMaterial);
+            }
+            if (filtroUrgencia !== 'todas') {
+                datosFiltrados = datosFiltrados.filter(a => a.urgencia === filtroUrgencia);
+            }
+
+            renderizarTabla(datosFiltrados);
+        }
+
+        function resetFiltros() {
+            document.getElementById('filtroAlerta').value = 'todas';
+            document.getElementById('filtroMaterial').value = 'todos';
+            document.getElementById('filtroUrgencia').value = 'todas';
+            renderizarTabla(alertas);
+        }
+
+        function marcarResuelta(id) {
+            const fila = event.target.closest('tr');
+            fila.style.opacity = '0.5';
+            fila.style.transition = 'opacity 0.5s';
+            setTimeout(() => {
+                const index = alertas.findIndex(a => a.id === id);
+                if (index > -1) {
+                    alertas.splice(index, 1);
+                }
+                filtrarTabla();
+                let resueltas = parseInt(document.getElementById('countResueltas').textContent) + 1;
+                document.getElementById('countResueltas').textContent = resueltas;
+            }, 400);
+        }
+
+        // Fecha actual
+        const fecha = new Date();
+        const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('fechaActual').textContent = '📅 ' + fecha.toLocaleDateString('es-PE', opciones);
+
+        // Renderizado inicial
+        renderizarTabla(alertas);
+    </script>
+
+</body>
+</html>
